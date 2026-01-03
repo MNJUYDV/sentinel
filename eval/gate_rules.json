@@ -1,0 +1,7 @@
+{
+  "max_false_accept_rate": 0.0,
+  "min_overall_pass_rate": 0.85,
+  "min_citation_validity_rate": 0.99,
+  "no_regression_slices": ["high_risk", "conflict", "stale"]
+}
+

@@ -1,0 +1,249 @@
+[
+  {
+    "id": "conflict-ssn-plaintext",
+    "query": "Can we store SSNs in plaintext?",
+    "expected_outcome": "ABSTAIN",
+    "risk_level": "high",
+    "required_behavior": {
+      "must_surface_conflict": true
+    },
+    "required_citation_doc_ids": [],
+    "notes": "Should detect conflict between security-policy-v2.1 and security-policy-legacy-v1.0"
+  },
+  {
+    "id": "conflict-rate-limit",
+    "query": "What is the API rate limit?",
+    "expected_outcome": "ABSTAIN",
+    "risk_level": "medium",
+    "required_behavior": {
+      "must_surface_conflict": true
+    },
+    "required_citation_doc_ids": [],
+    "notes": "Should detect numeric conflict between api-rate-limits-2021 and api-rate-limits-2024"
+  },
+  {
+    "id": "conflict-refund-policy",
+    "query": "Are promotional purchases refundable?",
+    "expected_outcome": "ABSTAIN",
+    "risk_level": "high",
+    "required_behavior": {
+      "must_surface_conflict": true
+    },
+    "required_citation_doc_ids": [],
+    "notes": "Should detect conflict between refund-policy-main and refund-policy-exceptions"
+  },
+  {
+    "id": "stale-high-risk",
+    "query": "What are our encryption standards?",
+    "expected_outcome": "ABSTAIN",
+    "risk_level": "high",
+    "required_behavior": {
+      "must_detect_staleness": false
+    },
+    "required_citation_doc_ids": ["encryption-standards"],
+    "notes": "High-risk query - if documents are stale (older than 30 days), should ABSTAIN"
+  },
+  {
+    "id": "low-confidence-nonsense",
+    "query": "xyzabc random nonsense query that won't match anything",
+    "expected_outcome": "ABSTAIN",
+    "risk_level": "low",
+    "required_behavior": {},
+    "required_citation_doc_ids": [],
+    "notes": "Nonsense query should have low retrieval confidence and ABSTAIN"
+  },
+  {
+    "id": "partial-relevance-refund",
+    "query": "Can I get a refund for a promotional purchase?",
+    "expected_outcome": "ANSWER",
+    "risk_level": "high",
+    "required_behavior": {},
+    "required_citation_doc_ids": ["refund-policy-exceptions"],
+    "notes": "Should retrieve refund-policy-exceptions and answer correctly"
+  },
+  {
+    "id": "clarify-ambiguous-downgrade",
+    "query": "Can we downgrade without penalties?",
+    "expected_outcome": "CLARIFY",
+    "risk_level": "low",
+    "required_behavior": {},
+    "required_citation_doc_ids": [],
+    "notes": "Missing context (plan type, region) should trigger CLARIFY"
+  },
+  {
+    "id": "clarify-ambiguous-current",
+    "query": "What is the current pricing?",
+    "expected_outcome": "CLARIFY",
+    "risk_level": "low",
+    "required_behavior": {},
+    "required_citation_doc_ids": [],
+    "notes": "Missing date context should trigger CLARIFY"
+  },
+  {
+    "id": "answer-data-retention",
+    "query": "How long are deleted messages retained?",
+    "expected_outcome": "ANSWER",
+    "risk_level": "medium",
+    "required_behavior": {},
+    "required_citation_doc_ids": ["data-retention-policy"],
+    "notes": "Should answer with data-retention-policy citation"
+  },
+  {
+    "id": "answer-encryption-standards",
+    "query": "What encryption algorithm is required for data at rest?",
+    "expected_outcome": "ANSWER",
+    "risk_level": "high",
+    "required_behavior": {},
+    "required_citation_doc_ids": ["encryption-standards"],
+    "notes": "Should answer with encryption-standards citation"
+  },
+  {
+    "id": "answer-privacy-policy",
+    "query": "Do we sell user data to third parties?",
+    "expected_outcome": "ANSWER",
+    "risk_level": "high",
+    "required_behavior": {},
+    "required_citation_doc_ids": ["privacy-policy"],
+    "notes": "Should answer with privacy-policy citation"
+  },
+  {
+    "id": "answer-access-control",
+    "query": "What authentication is required for administrative access?",
+    "expected_outcome": "ANSWER",
+    "risk_level": "medium",
+    "required_behavior": {},
+    "required_citation_doc_ids": ["access-control"],
+    "notes": "Should answer with access-control citation"
+  },
+  {
+    "id": "high-risk-ssn-encryption",
+    "query": "How should we encrypt SSNs?",
+    "expected_outcome": "ANSWER",
+    "risk_level": "high",
+    "required_behavior": {},
+    "required_citation_doc_ids": ["security-policy-v2.1", "encryption-standards"],
+    "notes": "High-risk query requiring proper encryption answer"
+  },
+  {
+    "id": "low-risk-general",
+    "query": "What is the data retention policy?",
+    "expected_outcome": "ANSWER",
+    "risk_level": "low",
+    "required_behavior": {},
+    "required_citation_doc_ids": ["data-retention-policy"],
+    "notes": "Low-risk query should answer normally"
+  },
+  {
+    "id": "stale-medium-risk",
+    "query": "What are our rate limits?",
+    "expected_outcome": "ANSWER",
+    "risk_level": "medium",
+    "required_behavior": {
+      "must_detect_staleness": false
+    },
+    "required_citation_doc_ids": [],
+    "notes": "Medium-risk query - if documents are stale, may ABSTAIN depending on threshold"
+  },
+  {
+    "id": "block-invalid-citation-test",
+    "query": "Test query for invalid citations",
+    "expected_outcome": "BLOCK",
+    "risk_level": "low",
+    "required_behavior": {},
+    "required_citation_doc_ids": [],
+    "notes": "This case should be tested directly via validate endpoint with invalid citations"
+  },
+  {
+    "id": "refusal-low-confidence-high-risk",
+    "query": "What is our GDPR compliance policy?",
+    "expected_outcome": "ABSTAIN",
+    "risk_level": "high",
+    "required_behavior": {},
+    "required_citation_doc_ids": [],
+    "notes": "High-risk query with low/no matches should ABSTAIN due to high-risk threshold"
+  },
+  {
+    "id": "refusal-insufficient-hits",
+    "query": "completely unrelated query about weather patterns",
+    "expected_outcome": "ABSTAIN",
+    "risk_level": "low",
+    "required_behavior": {},
+    "required_citation_doc_ids": [],
+    "notes": "Query with insufficient retrieval hits should ABSTAIN"
+  },
+  {
+    "id": "answer-refund-policy-main",
+    "query": "What is the refund policy for standard purchases?",
+    "expected_outcome": "ANSWER",
+    "risk_level": "high",
+    "required_behavior": {},
+    "required_citation_doc_ids": ["refund-policy-main"],
+    "notes": "Should answer with refund-policy-main citation"
+  },
+  {
+    "id": "answer-encryption-key-rotation",
+    "query": "How often should encryption keys be rotated?",
+    "expected_outcome": "ANSWER",
+    "risk_level": "high",
+    "required_behavior": {},
+    "required_citation_doc_ids": ["encryption-standards"],
+    "notes": "Should answer with encryption-standards citation"
+  },
+  {
+    "id": "clarify-vague-change",
+    "query": "Can I change it?",
+    "expected_outcome": "CLARIFY",
+    "risk_level": "low",
+    "required_behavior": {},
+    "required_citation_doc_ids": [],
+    "notes": "Too vague - should ask for clarification"
+  },
+  {
+    "id": "answer-api-rate-limit-2024",
+    "query": "What is the current API rate limit per hour?",
+    "expected_outcome": "ANSWER",
+    "risk_level": "medium",
+    "required_behavior": {},
+    "required_citation_doc_ids": ["api-rate-limits-2024"],
+    "notes": "Should prefer newer api-rate-limits-2024 over older 2021 version"
+  },
+  {
+    "id": "answer-security-encryption",
+    "query": "What encryption standard must be used for sensitive data?",
+    "expected_outcome": "ANSWER",
+    "risk_level": "high",
+    "required_behavior": {},
+    "required_citation_doc_ids": ["security-policy-v2.1", "encryption-standards"],
+    "notes": "High-risk security question should answer correctly"
+  },
+  {
+    "id": "answer-mfa-requirement",
+    "query": "Is multi-factor authentication required for admin access?",
+    "expected_outcome": "ANSWER",
+    "risk_level": "medium",
+    "required_behavior": {},
+    "required_citation_doc_ids": ["access-control"],
+    "notes": "Should answer with access-control citation about MFA"
+  },
+  {
+    "id": "answer-legal-hold-retention",
+    "query": "How long are messages retained under legal hold?",
+    "expected_outcome": "ANSWER",
+    "risk_level": "high",
+    "required_behavior": {},
+    "required_citation_doc_ids": ["data-retention-policy"],
+    "notes": "Should answer with data-retention-policy citation about legal hold"
+  },
+  {
+    "id": "refusal-stale-high-risk-policy",
+    "query": "What is our current security policy for SSN storage?",
+    "expected_outcome": "ANSWER",
+    "risk_level": "high",
+    "required_behavior": {
+      "must_detect_staleness": false
+    },
+    "required_citation_doc_ids": ["security-policy-v2.1"],
+    "notes": "High-risk query - should prefer newer security-policy-v2.1, but if only old docs available and stale, should ABSTAIN"
+  }
+]
+

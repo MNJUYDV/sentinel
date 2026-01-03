@@ -7,11 +7,13 @@ import logging
 from typing import Dict, List, Optional, Tuple
 
 from rag.config import (
+    Config,
     DEFAULT_CONFIDENCE_THRESHOLD,
     DEFAULT_CONFIDENCE_THRESHOLD_HIGH_RISK,
     DEFAULT_FRESHNESS_DAYS,
     DEFAULT_FRESHNESS_DAYS_HIGH_RISK,
-    DEFAULT_MIN_CHUNKS
+    DEFAULT_MIN_CHUNKS,
+    get_default_config
 )
 from rag.risk import classify_risk
 from rag.schemas import ConflictResult, RetrievalQuality, ValidationResult
@@ -72,7 +74,8 @@ def decide(
     retrieval_quality: RetrievalQuality,
     conflicts: ConflictResult,
     validation: ValidationResult,
-    risk_level: Optional[str] = None
+    risk_level: Optional[str] = None,
+    config: Optional[Config] = None
 ) -> Dict:
     """
     Decide whether to ANSWER, ABSTAIN, CLARIFY, or BLOCK.
@@ -108,6 +111,10 @@ def decide(
     signals = {}
     thresholds = {}
     
+    # Use config if provided, otherwise use defaults
+    if config is None:
+        config = get_default_config()
+    
     # Get risk classification if not provided
     if risk_level is None:
         risk_result = classify_risk(query)
@@ -115,18 +122,14 @@ def decide(
     else:
         risk_result = classify_risk(query)
     
-    # Set thresholds based on risk level
-    if risk_level == "high":
-        confidence_threshold = DEFAULT_CONFIDENCE_THRESHOLD_HIGH_RISK
-        freshness_days = DEFAULT_FRESHNESS_DAYS_HIGH_RISK
-    else:
-        confidence_threshold = DEFAULT_CONFIDENCE_THRESHOLD
-        freshness_days = DEFAULT_FRESHNESS_DAYS
+    # Set thresholds based on risk level using config
+    confidence_threshold = config.get_confidence_threshold(risk_level)
+    freshness_days = config.get_freshness_days(risk_level)
     
     thresholds = {
         "conf_max": confidence_threshold,
         "freshness_days": freshness_days,
-        "min_chunks": DEFAULT_MIN_CHUNKS
+        "min_chunks": config.min_chunks
     }
     
     signals = {
@@ -193,7 +196,7 @@ def decide(
     # Decision precedence: C) Check retrieval quality, freshness, ambiguity
     # C1: Check retrieval confidence and hit count
     if (retrieval_quality.confidence.max < confidence_threshold or 
-        retrieval_quality.confidence.hit_count < DEFAULT_MIN_CHUNKS):
+        retrieval_quality.confidence.hit_count < config.min_chunks):
         if retrieval_quality.confidence.max < confidence_threshold:
             reasons.append("low_retrieval_confidence")
         if retrieval_quality.confidence.hit_count < DEFAULT_MIN_CHUNKS:
@@ -204,7 +207,7 @@ def decide(
         logger.warning(
             f"ABSTAIN decision: low retrieval quality. "
             f"confidence={retrieval_quality.confidence.max:.4f} < {confidence_threshold}, "
-            f"hits={retrieval_quality.confidence.hit_count} < {DEFAULT_MIN_CHUNKS}"
+            f"hits={retrieval_quality.confidence.hit_count} < {config.min_chunks}"
         )
         
         return {

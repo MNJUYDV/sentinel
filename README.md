@@ -1,8 +1,8 @@
 # sentinel
 
-# RAG MVP - Day 5
+# RAG MVP - Day 6
 
-A minimal RAG (Retrieval-Augmented Generation) system that retrieves relevant document chunks and uses an LLM to generate answers. **Day 3 added citation enforcement and validation. Day 4 adds conflict detection. Day 5 adds a decision engine with abstention logic, risk classification, and clarification requests.**
+A minimal RAG (Retrieval-Augmented Generation) system that retrieves relevant document chunks and uses an LLM to generate answers. **Day 3 added citation enforcement and validation. Day 4 adds conflict detection. Day 5 adds a decision engine with abstention logic, risk classification, and clarification requests. Day 6 adds an offline evaluation suite with attribute-based scoring and regression comparison.**
 
 ## Features
 
@@ -19,6 +19,8 @@ A minimal RAG (Retrieval-Augmented Generation) system that retrieves relevant do
 - **Clarification Requests**: CLARIFY decision for ambiguous queries that need user context
 - **Retrieval Quality Signals**: Confidence metrics and freshness/staleness detection
 - **Debug Endpoints**: Inspect retrieval, conflicts, and decision engine independently
+- **Offline Evaluation Suite**: Golden set of test cases with attribute-based scoring
+- **Regression Comparison**: Compare baseline vs candidate configs with gate rules
 - **REST API**: FastAPI endpoints for querying and system info
 
 ## Project Structure
@@ -32,9 +34,21 @@ rag_mvp/
 │   ├── test_retrieval_quality.py
 │   ├── test_citation_validation.py
 │   ├── test_conflict_detection.py
-│   └── test_decision.py
+│   ├── test_decision.py
+│   └── test_eval.py
 ├── data/
 │   └── docs.json        # Seed documents
+├── eval/
+│   ├── __init__.py
+│   ├── golden_set_v1.json  # Golden test cases
+│   ├── gate_rules.json     # Gate rules for rollout blocking
+│   ├── pipeline.py         # In-process pipeline for eval
+│   ├── scoring.py          # Attribute scoring functions
+│   ├── gate.py             # Gate evaluation logic
+│   └── run_eval.py         # Eval runner CLI
+├── configs/
+│   ├── baseline.json       # Baseline config
+│   └── candidate.json      # Candidate config
 └── rag/
     ├── __init__.py
     ├── config.py        # Configuration constants
@@ -92,6 +106,7 @@ pytest tests/test_retrieval_quality.py -v
 pytest tests/test_citation_validation.py -v
 pytest tests/test_conflict_detection.py -v
 pytest tests/test_decision.py -v
+pytest tests/test_eval.py -v
 ```
 
 ## API Endpoints
@@ -708,6 +723,131 @@ These can be overridden per request via API parameters (where applicable).
 - ✅ Updated schemas with `DecisionResult`, `RiskResult`, and enhanced `AnswerResponse`
 - ✅ Added comprehensive unit tests for decision engine and risk classification
 - ✅ Updated configuration with decision engine thresholds
+
+## Day 6 Changes
+
+- ✅ Added offline evaluation suite with golden set of 25+ test cases
+- ✅ Created config system supporting overrides from JSON files
+- ✅ Implemented attribute-based scoring (outcome correctness, citation validity/coverage, conflict/staleness handling, refusal correctness, unsafe answer detection)
+- ✅ Added regression comparison between baseline and candidate configs
+- ✅ Implemented gate rules for blocking rollouts on regressions
+- ✅ Created eval runner CLI (`eval/run_eval.py`) with in-process pipeline execution
+- ✅ Added comprehensive unit tests for eval components
+- ✅ Evaluation runs in stub mode by default for determinism
+
+## Offline Evaluation Suite
+
+The evaluation suite provides a golden set of test cases and attribute-based scoring to gate rollouts and prevent regressions.
+
+### Running Evaluation
+
+**Basic usage (single config):**
+```bash
+python -m eval.run_eval \
+  --suite eval/golden_set_v1.json \
+  --config configs/baseline.json \
+  --out eval/results.json
+```
+
+**With gate rules (blocks rollout on failure):**
+```bash
+python -m eval.run_eval \
+  --suite eval/golden_set_v1.json \
+  --config configs/candidate.json \
+  --baseline eval/results_baseline.json \
+  --gate eval/gate_rules.json \
+  --out eval/results_candidate.json
+```
+
+**Comparing baseline vs candidate:**
+```bash
+# Run baseline first
+python -m eval.run_eval --suite eval/golden_set_v1.json --config configs/baseline.json --out eval/results_baseline.json
+
+# Run candidate and compare
+python -m eval.run_eval \
+  --suite eval/golden_set_v1.json \
+  --config configs/candidate.json \
+  --baseline eval/results_baseline.json \
+  --gate eval/gate_rules.json \
+  --out eval/results_candidate.json
+```
+
+### Evaluation Metrics
+
+The eval suite computes the following metrics:
+
+- **overall_pass_rate**: Percentage of test cases that pass all attribute checks
+- **false_accept_rate**: Percentage of cases that answered when expected to ABSTAIN/BLOCK/CLARIFY
+- **false_refuse_rate**: Percentage of cases that ABSTAINed/BLOCKed/CLARIFYed when expected to ANSWER
+- **citation_validity_rate**: Percentage of cases with valid citations (when ANSWERing)
+- **staleness_correct_rate**: Percentage of staleness cases handled correctly
+- **conflict_correct_rate**: Percentage of conflict cases handled correctly
+- **slice_metrics**: Per-slice metrics (high_risk, conflict, stale)
+
+### Attribute Scoring
+
+Each test case is scored across multiple attributes:
+
+1. **outcome_correctness**: Decision matches expected outcome (with acceptable alternates)
+2. **citation_validity**: Citations are valid (when ANSWERing)
+3. **citation_coverage**: Required citation doc_ids are present (when specified)
+4. **conflict_handling**: Conflicts are detected and surfaced (when required)
+5. **staleness_handling**: Staleness is detected and handled (when required)
+6. **refusal_correctness**: Refusals use safe fallback messages
+7. **unsafe_answer**: Severity-0 gate - detects unsafe answers (low confidence, stale, or conflicted)
+
+### Gate Rules
+
+Gate rules (in `eval/gate_rules.json`) block rollouts when:
+
+- `max_false_accept_rate`: False accept rate exceeds threshold (default: 0.0)
+- `min_overall_pass_rate`: Overall pass rate below threshold (default: 0.85)
+- `min_citation_validity_rate`: Citation validity below threshold (default: 0.99)
+- `no_regression_slices`: Specific slices (e.g., high_risk, conflict) must not regress vs baseline
+
+If any gate rule is violated, the eval runner exits with code 1 (blocks rollout).
+
+### Configuration
+
+Config files (JSON) control:
+- `top_k`: Number of chunks to retrieve
+- `freshness_days`: Freshness threshold (default/medium-risk)
+- `freshness_days_high_risk`: Freshness threshold for high-risk queries
+- `confidence_threshold`: Confidence threshold (default/medium-risk)
+- `confidence_threshold_high_risk`: Confidence threshold for high-risk queries
+- `min_chunks`: Minimum number of chunks required
+
+Example config:
+```json
+{
+  "top_k": 5,
+  "freshness_days": 90,
+  "freshness_days_high_risk": 30,
+  "confidence_threshold": 0.60,
+  "confidence_threshold_high_risk": 0.70,
+  "min_chunks": 2
+}
+```
+
+### Golden Set Format
+
+Each test case in `eval/golden_set_v1.json` includes:
+
+- `id`: Unique identifier
+- `query`: Test query
+- `expected_outcome`: Expected decision (ANSWER, ABSTAIN, CLARIFY, BLOCK, ANSWER_WITH_CAVEATS)
+- `risk_level`: Risk level (high, medium, low)
+- `required_behavior`: Object with booleans (e.g., `must_surface_conflict`, `must_detect_staleness`)
+- `required_citation_doc_ids`: Optional array of doc_ids that must be cited
+- `notes`: Optional description
+
+### Important Notes
+
+- **Evaluation is a GATE, not a report**: The primary purpose is to block rollouts when behavior regresses
+- **Stub mode by default**: Evaluations run in stub LLM mode for determinism (unless `--no-stub` is provided)
+- **In-process execution**: The eval runner imports pipeline functions directly (no HTTP calls)
+- **Acceptable alternates**: Some outcome mismatches are acceptable (e.g., ABSTAIN for ANSWER_WITH_CAVEATS in high-risk cases)
 
 ## Next Steps (Future Days)
 

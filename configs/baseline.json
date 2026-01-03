@@ -1,0 +1,9 @@
+{
+  "top_k": 5,
+  "freshness_days": 90,
+  "freshness_days_high_risk": 30,
+  "confidence_threshold": 0.60,
+  "confidence_threshold_high_risk": 0.70,
+  "min_chunks": 2
+}
+
