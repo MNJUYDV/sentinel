@@ -50,20 +50,25 @@ def retrieve(
 
 def compute_retrieval_quality(
     chunks: List[dict],
-    freshness_days: Optional[int] = None
+    freshness_days: Optional[int] = None,
+    disable_freshness: bool = False
 ) -> RetrievalQuality:
     """
     Compute retrieval quality signals including confidence and freshness metrics.
     
     Args:
         chunks: List of retrieved chunk dictionaries
-        freshness_days: Freshness threshold in days (defaults to DEFAULT_FRESHNESS_DAYS)
+        freshness_days: Freshness threshold in days. None uses DEFAULT_FRESHNESS_DAYS.
+        disable_freshness: If True, skip freshness violation calculation (treat as disabled)
     
     Returns:
         RetrievalQuality object with all computed signals
     """
-    if freshness_days is None:
-        freshness_days = DEFAULT_FRESHNESS_DAYS
+    # Handle freshness_days: None means use default, unless freshness is disabled
+    if disable_freshness:
+        effective_freshness_days = 0  # 0 indicates disabled
+    else:
+        effective_freshness_days = DEFAULT_FRESHNESS_DAYS if freshness_days is None else freshness_days
     
     if not chunks:
         # Return empty quality signals if no chunks
@@ -79,7 +84,7 @@ def compute_retrieval_quality(
                 newest_timestamp="",
                 freshness_violation_count=0,
                 freshness_violation=False,
-                freshness_days=freshness_days
+                freshness_days=effective_freshness_days
             ),
             top_doc_ids=[],
             top_timestamps=[]
@@ -122,16 +127,29 @@ def compute_retrieval_quality(
     
     # Compute freshness violations
     violation_count = 0
-    if parsed_timestamps:
-        threshold_date = datetime.now().replace(tzinfo=parsed_timestamps[0].tzinfo) - timedelta(days=freshness_days)
-        violation_count = sum(1 for dt in parsed_timestamps if dt < threshold_date)
+    freshness_days_for_response = effective_freshness_days
+    
+    # Skip freshness violation calculation if:
+    # 1. No timestamps to check
+    # 2. freshness_days is 0 (disabled)
+    # 3. freshness_days would cause overflow (Python datetime has limits ~36500 days is safe)
+    MAX_SAFE_FRESHNESS_DAYS = 36500  # ~100 years, safe limit for datetime
+    
+    if not disable_freshness and parsed_timestamps and effective_freshness_days > 0 and effective_freshness_days <= MAX_SAFE_FRESHNESS_DAYS:
+        try:
+            threshold_date = datetime.now().replace(tzinfo=parsed_timestamps[0].tzinfo) - timedelta(days=effective_freshness_days)
+            violation_count = sum(1 for dt in parsed_timestamps if dt < threshold_date)
+        except (OverflowError, OSError):
+            # If overflow occurs (shouldn't happen with our check, but be safe), skip violations
+            violation_count = 0
+    # If freshness is disabled or effective_freshness_days is 0, violation_count stays 0
     
     freshness = RetrievalFreshness(
         oldest_timestamp=oldest_timestamp,
         newest_timestamp=newest_timestamp,
         freshness_violation_count=violation_count,
         freshness_violation=violation_count > 0,
-        freshness_days=freshness_days
+        freshness_days=freshness_days_for_response
     )
     
     # Extract top doc_ids and timestamps

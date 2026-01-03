@@ -58,7 +58,11 @@ class AnswerRequest(BaseModel):
     """Request to answer a query using RAG."""
     query: str = Field(..., min_length=1, description="User query")
     top_k: int = Field(default=5, ge=1, le=20, description="Number of chunks to retrieve")
-    freshness_days: Optional[int] = Field(None, ge=1, description="Override freshness threshold in days (optional)")
+    freshness_days: Optional[int] = Field(
+        None, 
+        ge=0, 
+        description="Override freshness threshold in days (optional: >= 1 for threshold, 0 to disable, None for default)"
+    )
 
 
 class AnswerResponse(BaseModel):

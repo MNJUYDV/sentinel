@@ -4,8 +4,11 @@ FastAPI application for RAG MVP Day 3.
 import logging
 from pathlib import Path
 
+import json
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 # Load environment variables from .env file
 load_dotenv()
@@ -48,6 +51,66 @@ documents = []
 
 # Safe fallback answer when citations are invalid
 SAFE_FALLBACK_ANSWER = "I can't provide a cited answer because the citations couldn't be verified against the retrieved documents."
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Custom handler for validation errors to provide clearer messages."""
+    errors = exc.errors()
+    error_messages = []
+    hint = None
+    
+    for error in errors:
+        field = " -> ".join(str(loc) for loc in error["loc"])
+        msg = error["msg"]
+        error_type = error.get("type", "")
+        
+        # Handle JSON decode errors
+        if "json decode" in msg.lower() or error_type in ["json_invalid", "value_error.jsondecode"]:
+            # Try to get the actual error position
+            ctx = error.get("ctx", {})
+            pos = ctx.get("pos", "unknown")
+            loc = error.get("loc", [])
+            
+            error_messages.append(
+                f"Invalid JSON in request body: {msg}. "
+                f"Error location: {loc}. "
+                f"Please check your JSON syntax around that position."
+            )
+            hint = (
+                "Common JSON errors:\n"
+                "- Missing commas between fields (check before position 1527)\n"
+                "- Unclosed brackets [] or braces {}\n"
+                "- Invalid quotes (use double quotes \" for strings)\n"
+                "- Trailing commas before closing brackets\n"
+                "- Special characters in text fields that need escaping\n"
+                "Validate your JSON at: https://jsonlint.com/ or check the Swagger UI example"
+            )
+        
+        # Handle freshness_days errors
+        elif "freshness_days" in field:
+            error_messages.append(
+                f"freshness_days must be >= 0 if provided (0 to disable, >= 1 for threshold), or omit to use default ({DEFAULT_FRESHNESS_DAYS} days). Got: {error.get('input', 'unknown')}"
+            )
+            if hint is None:
+                hint = "For freshness_days: omit the parameter to use default, or provide a value >= 0"
+        
+        # Handle missing required fields
+        elif error_type == "missing":
+            error_messages.append(f"Missing required field: {field}. This field is required.")
+        
+        # Generic error
+        else:
+            error_messages.append(f"{field}: {msg}")
+    
+    response_content = {"detail": error_messages}
+    if hint:
+        response_content["hint"] = hint
+    
+    return JSONResponse(
+        status_code=422,
+        content=response_content
+    )
 
 
 @app.on_event("startup")
@@ -107,13 +170,22 @@ async def answer_query(request: AnswerRequest):
     
     try:
         # Use request freshness_days or default
-        freshness_days = request.freshness_days if request.freshness_days is not None else DEFAULT_FRESHNESS_DAYS
+        # If freshness_days is 0, pass None with a flag or use a special value that compute_retrieval_quality recognizes
+        # We'll use None and handle 0 specially in compute_retrieval_quality
+        if request.freshness_days == 0:
+            freshness_days = None  # Will be handled specially in compute_retrieval_quality
+        elif request.freshness_days is not None:
+            freshness_days = request.freshness_days
+        else:
+            freshness_days = DEFAULT_FRESHNESS_DAYS
         
         # Retrieve relevant chunks
         retrieved_chunks = retrieve(vector_index, request.query, request.top_k)
         
         # Compute retrieval quality signals
-        retrieval_quality = compute_retrieval_quality(retrieved_chunks, freshness_days)
+        # If freshness_days was 0 in request, disable freshness checking
+        disable_freshness = (request.freshness_days == 0)
+        retrieval_quality = compute_retrieval_quality(retrieved_chunks, freshness_days, disable_freshness=disable_freshness)
         
         # Generate answer with citations
         llm_result = generate_answer(request.query, retrieved_chunks)
@@ -224,7 +296,7 @@ async def validate_citations_endpoint(request: ValidateRequest):
 async def debug_retrieval(
     q: str = Query(..., description="Query string"),
     top_k: int = Query(DEFAULT_TOP_K, ge=1, le=20, description="Number of chunks to retrieve"),
-    freshness_days: int = Query(None, ge=1, description="Freshness threshold in days (optional)")
+    freshness_days: int = Query(None, ge=0, description="Freshness threshold in days (optional: >= 1 for threshold, 0 to disable, None for default)")
 ):
     """
     Debug endpoint to inspect retrieval results and quality signals without LLM call.
@@ -235,13 +307,20 @@ async def debug_retrieval(
     
     try:
         # Use provided freshness_days or default
-        freshness_threshold = freshness_days if freshness_days is not None else DEFAULT_FRESHNESS_DAYS
+        # If freshness_days is 0, disable freshness checking
+        disable_freshness = (freshness_days == 0)
+        if freshness_days == 0:
+            freshness_threshold = None
+        elif freshness_days is not None:
+            freshness_threshold = freshness_days
+        else:
+            freshness_threshold = DEFAULT_FRESHNESS_DAYS
         
         # Retrieve relevant chunks
         retrieved_chunks = retrieve(vector_index, q, top_k)
         
         # Compute retrieval quality signals
-        retrieval_quality = compute_retrieval_quality(retrieved_chunks, freshness_threshold)
+        retrieval_quality = compute_retrieval_quality(retrieved_chunks, freshness_threshold, disable_freshness=disable_freshness)
         
         # Format response
         chunk_infos = [

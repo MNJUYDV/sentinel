@@ -1,0 +1,83 @@
+{
+  "answer": "Based on the retrieved documents, there are conflicting policies regarding SSN storage. The current security policy (2024-03-15) states that SSNs must not be stored in plaintext and must be encrypted at rest using AES-256 encryption. However, there is a legacy policy from 2020 that allows plaintext storage in restricted internal systems. The current policy should take precedence as it is more recent. Additionally, the encryption standards document specifies that all data at rest must use AES-256 encryption with proper key management, and encryption keys must be rotated every 90 days.",
+  "citations": [
+    "security-policy-v2.1#p1",
+    "security-policy-v2.1#p2",
+    "security-policy-legacy-v1.0#p1",
+    "encryption-standards#p1",
+    "encryption-standards#p2"
+  ],
+  "retrieved_chunks": [
+    {
+      "doc_id": "security-policy-v2.1",
+      "chunk_id": "security-policy-v2.1#p0",
+      "timestamp": "2024-03-15T10:00:00Z",
+      "similarity": 0.9141,
+      "text": "This document outlines the security requirements for handling sensitive customer data."
+    },
+    {
+      "doc_id": "security-policy-v2.1",
+      "chunk_id": "security-policy-v2.1#p1",
+      "timestamp": "2024-03-15T10:00:00Z",
+      "similarity": 0.8251,
+      "text": "SSNs must not be stored in plaintext; encrypt at rest."
+    },
+    {
+      "doc_id": "security-policy-v2.1",
+      "chunk_id": "security-policy-v2.1#p2",
+      "timestamp": "2024-03-15T10:00:00Z",
+      "similarity": 0.7234,
+      "text": "All sensitive data must be encrypted using AES-256 encryption with proper key management."
+    },
+    {
+      "doc_id": "security-policy-legacy-v1.0",
+      "chunk_id": "security-policy-legacy-v1.0#p0",
+      "timestamp": "2020-06-10T14:30:00Z",
+      "similarity": 0.7123,
+      "text": "These are the legacy security guidelines for restricted internal systems."
+    },
+    {
+      "doc_id": "security-policy-legacy-v1.0",
+      "chunk_id": "security-policy-legacy-v1.0#p1",
+      "timestamp": "2020-06-10T14:30:00Z",
+      "similarity": 0.6890,
+      "text": "SSNs may be stored in plaintext in restricted internal systems."
+    },
+    {
+      "doc_id": "encryption-standards",
+      "chunk_id": "encryption-standards#p0",
+      "timestamp": "2024-03-20T14:00:00Z",
+      "similarity": 0.5678,
+      "text": "Detailed encryption standards for all data at rest and in transit."
+    },
+    {
+      "doc_id": "encryption-standards",
+      "chunk_id": "encryption-standards#p1",
+      "timestamp": "2024-03-20T14:00:00Z",
+      "similarity": 0.5234,
+      "text": "All data at rest must use AES-256 encryption."
+    },
+    {
+      "doc_id": "encryption-standards",
+      "chunk_id": "encryption-standards#p2",
+      "timestamp": "2024-03-20T14:00:00Z",
+      "similarity": 0.4890,
+      "text": "TLS 1.3 is required for all data in transit."
+    },
+    {
+      "doc_id": "encryption-standards",
+      "chunk_id": "encryption-standards#p3",
+      "timestamp": "2024-03-20T14:00:00Z",
+      "similarity": 0.4567,
+      "text": "Encryption keys must be rotated every 90 days."
+    },
+    {
+      "doc_id": "api-rate-limits-2024",
+      "chunk_id": "api-rate-limits-2024#p0",
+      "timestamp": "2024-01-10T11:00:00Z",
+      "similarity": 0.3456,
+      "text": "Updated API rate limiting policy effective January 2024."
+    }
+  ]
+}
+
