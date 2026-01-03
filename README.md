@@ -1,8 +1,8 @@
 # sentinel
 
-# RAG MVP - Day 6
+# RAG MVP - Day 7
 
-A minimal RAG (Retrieval-Augmented Generation) system that retrieves relevant document chunks and uses an LLM to generate answers. **Day 3 added citation enforcement and validation. Day 4 adds conflict detection. Day 5 adds a decision engine with abstention logic, risk classification, and clarification requests. Day 6 adds an offline evaluation suite with attribute-based scoring and regression comparison.**
+A minimal RAG (Retrieval-Augmented Generation) system that retrieves relevant document chunks and uses an LLM to generate answers. **Day 3 added citation enforcement and validation. Day 4 adds conflict detection. Day 5 adds a decision engine with abstention logic, risk classification, and clarification requests. Day 6 adds an offline evaluation suite with attribute-based scoring and regression comparison. Day 7 adds config versioning, promotion workflows, and rollback support.**
 
 ## Features
 
@@ -21,7 +21,10 @@ A minimal RAG (Retrieval-Augmented Generation) system that retrieves relevant do
 - **Debug Endpoints**: Inspect retrieval, conflicts, and decision engine independently
 - **Offline Evaluation Suite**: Golden set of test cases with attribute-based scoring
 - **Regression Comparison**: Compare baseline vs candidate configs with gate rules
-- **REST API**: FastAPI endpoints for querying and system info
+- **Config Versioning**: Versioned config management with metadata, hashes, and lineage tracking
+- **Promotion Workflows**: Eval-gated promotion to prod with automatic gate checking
+- **Rollback Support**: One-level rollback to previous prod config
+- **REST API**: FastAPI endpoints for querying, system info, and config management
 
 ## Project Structure
 
@@ -35,7 +38,8 @@ rag_mvp/
 │   ├── test_citation_validation.py
 │   ├── test_conflict_detection.py
 │   ├── test_decision.py
-│   └── test_eval.py
+│   ├── test_eval.py
+│   └── test_registry.py
 ├── data/
 │   └── docs.json        # Seed documents
 ├── eval/
@@ -48,7 +52,20 @@ rag_mvp/
 │   └── run_eval.py         # Eval runner CLI
 ├── configs/
 │   ├── baseline.json       # Baseline config
-│   └── candidate.json      # Candidate config
+│   ├── candidate.json      # Candidate config
+│   └── registry/           # Config registry
+│       ├── versions/       # Config version files
+│       ├── pointers.json   # Environment pointers
+│       └── history.jsonl   # Promotion/rollback history
+├── registry/               # Config registry module
+│   ├── __init__.py
+│   ├── models.py          # Pydantic models
+│   ├── store.py           # Registry store functions
+│   ├── history.py         # History logging
+│   ├── promotion.py       # Promotion/rollback workflows
+│   └── schemas.py         # API request/response schemas
+├── scripts/
+│   └── bootstrap_initial_config.py  # Bootstrap script
 └── rag/
     ├── __init__.py
     ├── config.py        # Configuration constants
@@ -735,6 +752,128 @@ These can be overridden per request via API parameters (where applicable).
 - ✅ Added comprehensive unit tests for eval components
 - ✅ Evaluation runs in stub mode by default for determinism
 
+## Day 7 Changes
+
+- ✅ Added config registry system (`registry/`) with versioned config management
+- ✅ Implemented promotion workflow with eval-gated promotion to prod
+- ✅ Added rollback support (one-level rollback to previous prod config)
+- ✅ Created FastAPI endpoints for config management (`/configs`, `/promote`, `/rollback`, `/pointers`)
+- ✅ Wired prod pointer into `/answer` endpoint with environment override (`?env=dev|staging|prod`)
+- ✅ Added promotion history logging (JSONL format)
+- ✅ Created bootstrap script for initial config setup
+- ✅ Added comprehensive tests for registry and promotion workflows
+- ✅ File-based storage (no database required for MVP)
+
+## Config Versioning and Promotion (Day 7)
+
+The system includes a config registry that manages versioned configurations with promotion workflows and rollback support. All config changes (including prompts) are versioned and must pass evaluation gates before promotion to production.
+
+### Key Concepts
+
+- **Config Versions**: Each configuration (thresholds, prompts, etc.) is stored as a versioned artifact with metadata (author, change reason, parent, hashes)
+- **Pointers**: Environment pointers (dev/staging/prod) point to active config versions
+- **Promotion Gate**: Candidates must pass eval gate (comparing against current prod) before promotion
+- **Rollback**: One-level rollback to previous prod config is supported
+- **History**: All promotions and rollbacks are logged to `configs/registry/history.jsonl`
+
+### Initial Setup
+
+Bootstrap initial config versions:
+
+```bash
+python scripts/bootstrap_initial_config.py
+```
+
+This creates initial configs for dev, staging, and prod environments.
+
+### API Endpoints
+
+#### List Configs
+```bash
+curl http://localhost:8000/configs
+```
+
+#### Get Config Details
+```bash
+curl http://localhost:8000/configs/rag_prod_v1
+```
+
+#### Get Pointers
+```bash
+curl http://localhost:8000/pointers
+```
+
+#### Create New Config Version
+```bash
+curl -X POST http://localhost:8000/configs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "parent_id": "rag_prod_v1",
+    "author": "alice",
+    "change_reason": "Increase confidence threshold for high-risk queries",
+    "config": {
+      "top_k": 5,
+      "confidence_threshold": 0.60,
+      "confidence_threshold_high_risk": 0.75,
+      "freshness_days": 90,
+      "freshness_days_high_risk": 30,
+      "min_chunks": 2
+    },
+    "prompt": {
+      "system_prompt": "You are a helpful assistant...",
+      "user_template": "Query: {query}\n\nContext:\n{context}"
+    }
+  }'
+```
+
+#### Promote to Prod
+```bash
+curl -X POST http://localhost:8000/promote \
+  -H "Content-Type: application/json" \
+  -d '{
+    "candidate_id": "rag_prod_v2",
+    "actor": "alice"
+  }'
+```
+
+The promotion endpoint will:
+1. Run eval gate comparing candidate vs current prod
+2. If gate passes, update prod pointer and log promotion
+3. Return promotion result with gate status
+
+#### Rollback Prod
+```bash
+curl -X POST http://localhost:8000/rollback \
+  -H "Content-Type: application/json" \
+  -d '{
+    "actor": "alice",
+    "reason": "Rolling back due to production issue"
+  }'
+```
+
+### Using Configs in /answer Endpoint
+
+The `/answer` endpoint uses the active prod config by default. Override with `?env=`:
+
+```bash
+# Use prod config (default)
+curl -X POST http://localhost:8000/answer \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is our refund policy?"}'
+
+# Use dev config for testing
+curl -X POST "http://localhost:8000/answer?env=dev" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is our refund policy?"}'
+```
+
+### Important Notes
+
+- **No prompt-only edits in prod**: All changes (including prompts) must be versioned and gated
+- **Gate is deterministic**: Promotion uses stub LLM mode for deterministic evaluation
+- **One-level rollback**: Only the previous prod config can be rolled back to
+- **File-based storage**: Registry uses file-based storage (no database required)
+
 ## Offline Evaluation Suite
 
 The evaluation suite provides a golden set of test cases and attribute-based scoring to gate rollouts and prevent regressions.
@@ -858,7 +997,7 @@ Each test case in `eval/golden_set_v1.json` includes:
 - Implement conversation history
 - Add evaluation metrics
 - Human routing workflow for conflicts
-- Canary rollout and config promotion gates (Day 7)
+- Add source citation formatting in answer text
 
 ## Troubleshooting
 

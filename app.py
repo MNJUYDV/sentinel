@@ -1,7 +1,8 @@
 """
-FastAPI application for RAG MVP Day 3.
+FastAPI application for RAG MVP Day 7.
 """
 import logging
+import os
 from pathlib import Path
 
 import json
@@ -13,11 +14,12 @@ from fastapi.responses import JSONResponse
 # Load environment variables from .env file
 load_dotenv()
 
-from rag.config import DEFAULT_TOP_K, DEFAULT_FRESHNESS_DAYS
+from rag.config import DEFAULT_TOP_K, DEFAULT_FRESHNESS_DAYS, Config
 from rag.conflicts import detect_conflicts
 from rag.decision import decide
 from rag.ingest import initialize_rag_index
 from rag.llm import generate_answer
+from rag.pipeline import run_query
 from rag.retrieve import compute_retrieval_quality, retrieve
 from rag.validate import validate_citations
 from rag.schemas import (
@@ -38,6 +40,16 @@ from rag.schemas import (
     ValidateResponse,
     ValidationResult,
 )
+from registry.store import (
+    list_versions, get_version, create_version, get_pointers, get_prod_history
+)
+from registry.promotion import promote_to_prod, rollback_prod
+from registry.schemas import (
+    CreateConfigRequest, PromoteRequest, RollbackRequest,
+    PromoteResponse, RollbackResponse
+)
+from registry.models import ConfigVersion, ConfigVersionSummary, Pointers
+from typing import List
 
 # Configure logging
 logging.basicConfig(
@@ -48,9 +60,9 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="RAG MVP - Day 5",
-    description="A minimal RAG system with naive retrieval, LLM answering, retrieval quality signals, citation enforcement, conflict detection, and decision engine",
-    version="0.5.0"
+    title="RAG MVP - Day 7",
+    description="A minimal RAG system with naive retrieval, LLM answering, retrieval quality signals, citation enforcement, conflict detection, decision engine, and config versioning",
+    version="0.7.0"
 )
 
 # Global state: initialized on startup
@@ -164,140 +176,39 @@ async def get_docs():
 
 
 @app.post("/answer", response_model=AnswerResponse)
-async def answer_query(request: AnswerRequest):
+async def answer_query(
+    request: AnswerRequest,
+    env: str = Query("prod", description="Environment: dev, staging, or prod")
+):
     """
-    Answer a query using RAG with decision engine, citation enforcement, and conflict detection:
-    1. Retrieve top-k relevant chunks
-    2. Detect conflicts in retrieved chunks
-    3. Run decision engine (before LLM call)
-    4. If decision is ANSWER, generate answer with citations using LLM
-    5. Validate citations against retrieved chunks
-    6. If validation fails, override decision to BLOCK
-    7. Return response with decision, reasons, and signals
+    Answer a query using RAG with decision engine, citation enforcement, and conflict detection.
+    Uses the active config for the specified environment (default: prod).
     """
     if vector_index is None:
         raise HTTPException(status_code=503, detail="RAG index not initialized")
     
     try:
-        # Use request freshness_days or default
-        if request.freshness_days == 0:
-            freshness_days = None
-        elif request.freshness_days is not None:
-            freshness_days = request.freshness_days
-        else:
-            freshness_days = DEFAULT_FRESHNESS_DAYS
+        # Get active config for environment
+        from registry.store import get_pointer, get_version
+        config_id = get_pointer(env)
+        if not config_id:
+            raise HTTPException(status_code=500, detail=f"No config pointer for environment: {env}")
         
-        # Retrieve relevant chunks
-        retrieved_chunks = retrieve(vector_index, request.query, request.top_k)
+        config_version = get_version(config_id)
+        if not config_version:
+            raise HTTPException(status_code=500, detail=f"Config {config_id} not found")
         
-        # Compute retrieval quality signals
-        disable_freshness = (request.freshness_days == 0)
-        retrieval_quality = compute_retrieval_quality(retrieved_chunks, freshness_days, disable_freshness=disable_freshness)
+        # Create Config object from version
+        config = Config(overrides=config_version.config)
         
-        # Detect conflicts
-        conflict_result_dict = detect_conflicts(retrieved_chunks)
-        conflict_pairs = [
-            ConflictPair(**pair) for pair in conflict_result_dict.get("pairs", [])
-        ]
-        conflict_result = ConflictResult(
-            conflict_detected=conflict_result_dict["conflict_detected"],
-            conflict_type=conflict_result_dict.get("conflict_type"),
-            pairs=conflict_pairs,
-            summary=conflict_result_dict["summary"]
-        )
-        
-        # Run decision engine BEFORE LLM call (use placeholder validation)
-        placeholder_validation = ValidationResult(citation_valid=True, errors=[], warnings=[])
-        decision_result_dict = decide(
-            query=request.query,
-            retrieved_chunks=retrieved_chunks,
-            retrieval_quality=retrieval_quality,
-            conflicts=conflict_result,
-            validation=placeholder_validation
-        )
-        
-        decision = decision_result_dict["decision"]
-        answer = decision_result_dict.get("user_message")
-        citations = []
-        reasons = decision_result_dict.get("reasons", [])
-        signals = decision_result_dict.get("signals", {})
-        risk_result_dict = decision_result_dict.get("risk", {})
-        
-        # If decision is ANSWER, call LLM and validate
-        validation_result = placeholder_validation
-        if decision == "ANSWER":
-            # Generate answer with citations using LLM
-            llm_result = generate_answer(request.query, retrieved_chunks)
-            answer = llm_result["answer"]
-            citations = llm_result["citations"]
-            
-            # Validate citations
-            citation_valid, errors, warnings = validate_citations(
-                citations, retrieved_chunks, answer
-            )
-            validation_result = ValidationResult(
-                citation_valid=citation_valid,
-                errors=errors,
-                warnings=warnings
-            )
-            
-            # If validation fails, override decision to BLOCK
-            if not citation_valid:
-                decision = "BLOCK"
-                answer = SAFE_FALLBACK_ANSWER
-                citations = []
-                reasons = ["invalid_citations"] + errors[:1]
-                logger.warning(f"BLOCKED answer due to invalid citations. Errors: {errors}")
-        elif decision == "ABSTAIN" and conflict_result.conflict_detected:
-            # For conflict-based abstention, include conflict chunk citations
-            if conflict_result.pairs:
-                first_pair = conflict_result.pairs[0]
-                chunk_a_id = first_pair.chunk_a["chunk_id"]
-                chunk_b_id = first_pair.chunk_b["chunk_id"]
-                citations = [chunk_a_id, chunk_b_id]
-                citations = [c for c in citations if c in [ch["chunk_id"] for ch in retrieved_chunks]]
-        
-        # Log decision
-        top_doc_ids_str = ", ".join(retrieval_quality.top_doc_ids[:3])
-        logger.info(
-            f"Query: {request.query[:50]}, "
-            f"decision: {decision}, "
-            f"retrieval_confidence_max: {retrieval_quality.confidence.max:.4f}, "
-            f"freshness_violation: {retrieval_quality.freshness.freshness_violation}, "
-            f"conflict_detected: {conflict_result.conflict_detected}, "
-            f"top_doc_ids: [{top_doc_ids_str}]"
-        )
-        
-        # Format response
-        chunk_infos = [
-            ChunkInfo(
-                doc_id=chunk["doc_id"],
-                chunk_id=chunk["chunk_id"],
-                timestamp=chunk["timestamp"],
-                similarity=chunk["similarity"],
-                text=chunk["text"]
-            )
-            for chunk in retrieved_chunks
-        ]
-        
-        response = AnswerResponse(
-            query=request.query,
-            decision=decision,
-            answer=answer or "",
-            citations=citations,
-            retrieval=RetrievalResult(
-                top_k=request.top_k,
-                chunks=chunk_infos
-            ),
-            retrieval_quality=retrieval_quality,
-            validation=validation_result,
-            conflicts=conflict_result,
-            reasons=reasons,
-            signals=signals
-        )
+        # Use pipeline to run query
+        mode = "stub" if not os.getenv("OPENAI_API_KEY") else "openai"
+        response = run_query(request.query, vector_index, config, mode=mode)
         
         return response
     
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error processing query: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error processing query: {str(e)}")
@@ -551,6 +462,91 @@ async def debug_decision(
     except Exception as e:
         logger.error(f"Error in debug decision: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error in debug decision: {str(e)}")
+
+
+# ============================================================================
+# Config Registry Endpoints
+# ============================================================================
+
+@app.get("/configs", response_model=List[ConfigVersionSummary])
+async def list_configs():
+    """List all config versions (summary only)."""
+    try:
+        versions = list_versions()
+        return [ConfigVersionSummary(**v.dict()) for v in versions]
+    except Exception as e:
+        logger.error(f"Error listing configs: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error listing configs: {str(e)}")
+
+
+@app.get("/configs/{config_id}", response_model=ConfigVersion)
+async def get_config(config_id: str):
+    """Get full config version by ID."""
+    try:
+        version = get_version(config_id)
+        if not version:
+            raise HTTPException(status_code=404, detail=f"Config {config_id} not found")
+        return version
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting config {config_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error getting config: {str(e)}")
+
+
+@app.get("/pointers", response_model=Pointers)
+async def get_pointers_endpoint():
+    """Get current config pointers for all environments."""
+    try:
+        return get_pointers()
+    except Exception as e:
+        logger.error(f"Error getting pointers: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error getting pointers: {str(e)}")
+
+
+@app.post("/configs", response_model=ConfigVersionSummary)
+async def create_config(request: CreateConfigRequest):
+    """Create a new config version."""
+    try:
+        version = create_version(
+            parent_id=request.parent_id,
+            author=request.author,
+            change_reason=request.change_reason,
+            config=request.config,
+            prompt=request.prompt
+        )
+        return ConfigVersionSummary(**version.dict())
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating config: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error creating config: {str(e)}")
+
+
+@app.post("/promote", response_model=PromoteResponse)
+async def promote(request: PromoteRequest):
+    """Promote candidate config to prod if gate passes."""
+    try:
+        result = promote_to_prod(request.candidate_id, request.actor)
+        return PromoteResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error promoting config: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error promoting config: {str(e)}")
+
+
+@app.post("/rollback", response_model=RollbackResponse)
+async def rollback(request: RollbackRequest):
+    """Rollback prod to previous version."""
+    try:
+        result = rollback_prod(request.actor, request.reason)
+        return RollbackResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error rolling back: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error rolling back: {str(e)}")
 
 
 if __name__ == "__main__":

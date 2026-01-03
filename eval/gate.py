@@ -39,9 +39,10 @@ def evaluate_gate(
                 f"false_accept_rate {metrics['false_accept_rate']:.4f} > max {max_far}"
             )
     
-    # Check min_overall_pass_rate
-    if "min_overall_pass_rate" in gate_rules:
-        min_pass = gate_rules["min_overall_pass_rate"]
+    # Check min_overall_pass_rate or min_candidate_pass_rate
+    min_pass_key = "min_candidate_pass_rate" if "min_candidate_pass_rate" in gate_rules else "min_overall_pass_rate"
+    if min_pass_key in gate_rules:
+        min_pass = gate_rules[min_pass_key]
         if metrics.get("overall_pass_rate", 0.0) < min_pass:
             failures.append(
                 f"overall_pass_rate {metrics['overall_pass_rate']:.4f} < min {min_pass}"
@@ -108,4 +109,3 @@ def check_gate_and_exit(
     else:
         print("GATE PASSED")
         sys.exit(0)
-

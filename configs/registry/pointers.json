@@ -1,0 +1,7 @@
+{
+  "dev": "rag_dev_v1",
+  "staging": "rag_staging_v1",
+  "prod": "rag_prod_v1",
+  "prod_previous": null
+}
+
