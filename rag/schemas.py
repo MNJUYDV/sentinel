@@ -47,6 +47,13 @@ class RetrievalQuality(BaseModel):
     top_timestamps: List[str] = Field(..., description="Timestamps of retrieved chunks (in order)")
 
 
+class ValidationResult(BaseModel):
+    """Citation validation results."""
+    citation_valid: bool = Field(..., description="True if citations are valid")
+    errors: List[str] = Field(default_factory=list, description="Validation errors")
+    warnings: List[str] = Field(default_factory=list, description="Validation warnings (non-blocking)")
+
+
 class AnswerRequest(BaseModel):
     """Request to answer a query using RAG."""
     query: str = Field(..., min_length=1, description="User query")
@@ -55,11 +62,14 @@ class AnswerRequest(BaseModel):
 
 
 class AnswerResponse(BaseModel):
-    """Response containing answer and retrieval results."""
+    """Response containing answer and retrieval results with citation validation."""
     query: str = Field(..., description="Original query")
-    answer: str = Field(..., description="Generated answer")
+    decision: str = Field(..., description="ANSWER or BLOCK")
+    answer: str = Field(..., description="Generated answer or safe fallback if blocked")
+    citations: List[str] = Field(..., description="List of citation IDs")
     retrieval: RetrievalResult = Field(..., description="Retrieval results")
     retrieval_quality: RetrievalQuality = Field(..., description="Retrieval quality signals")
+    validation: ValidationResult = Field(..., description="Citation validation results")
 
 
 class DebugRetrievalResponse(BaseModel):
@@ -67,6 +77,20 @@ class DebugRetrievalResponse(BaseModel):
     query: str = Field(..., description="Original query")
     retrieval: RetrievalResult = Field(..., description="Retrieval results")
     retrieval_quality: RetrievalQuality = Field(..., description="Retrieval quality signals")
+
+
+class ValidateRequest(BaseModel):
+    """Request to validate citations."""
+    answer: str = Field(..., description="Answer text")
+    citations: List[str] = Field(..., description="List of citation IDs")
+    retrieved_chunks: List[ChunkInfo] = Field(..., description="Retrieved chunks to validate against")
+
+
+class ValidateResponse(BaseModel):
+    """Response from citation validation."""
+    citation_valid: bool = Field(..., description="True if citations are valid")
+    errors: List[str] = Field(default_factory=list, description="Validation errors")
+    warnings: List[str] = Field(default_factory=list, description="Validation warnings")
 
 
 class DocumentInfo(BaseModel):

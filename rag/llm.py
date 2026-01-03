@@ -1,9 +1,12 @@
 """
 LLM integration with OpenAI API and stub fallback.
+Returns structured JSON with answer and citations.
 """
+import json
 import logging
 import os
-from typing import List
+import re
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -20,13 +23,23 @@ def format_chunks_for_prompt(chunks: List[dict]) -> str:
     """Format retrieved chunks for inclusion in LLM prompt."""
     formatted = []
     for chunk in chunks:
-        chunk_str = f"[{chunk['doc_id']}#{chunk['chunk_id']} | {chunk['timestamp']}]\n{chunk['text']}"
+        chunk_str = f"[{chunk['chunk_id']} | {chunk['timestamp']}]\n{chunk['text']}"
         formatted.append(chunk_str)
     return "\n\n---\n\n".join(formatted)
 
 
-def call_openai_llm(query: str, chunks: List[dict]) -> str:
-    """Call OpenAI API to generate answer."""
+def get_allowed_citation_ids(chunks: List[dict]) -> List[str]:
+    """Extract allowed citation IDs from retrieved chunks."""
+    return [chunk["chunk_id"] for chunk in chunks]
+
+
+def call_openai_llm(query: str, chunks: List[dict]) -> Dict[str, any]:
+    """
+    Call OpenAI API to generate structured answer with citations.
+    
+    Returns:
+        Dict with keys: "answer" (str) and "citations" (List[str])
+    """
     if not OPENAI_AVAILABLE:
         raise ImportError("OpenAI library not installed")
     
@@ -37,13 +50,36 @@ def call_openai_llm(query: str, chunks: List[dict]) -> str:
     # Format chunks
     context = format_chunks_for_prompt(chunks)
     
-    # Construct prompt
-    system_prompt = "Answer using only the provided context. If context is insufficient, say you are not sure."
-    user_prompt = f"Query: {query}\n\nContext:\n{context}\n\nAnswer:"
+    # Get allowed citation IDs
+    allowed_citations = get_allowed_citation_ids(chunks)
+    allowed_citations_str = ", ".join(allowed_citations)
     
+    # Construct prompts
+    system_prompt = """You are a helpful assistant that answers questions using only the provided context.
+You MUST respond with ONLY a valid JSON object, no additional text.
+
+Your response must be exactly this format:
+{
+  "answer": "your answer here",
+  "citations": ["chunk_id1", "chunk_id2"]
+}
+
+Rules:
+1. The "citations" array must contain ONLY chunk IDs from the allowed list provided.
+2. If the context is insufficient to answer, set answer to indicate this (e.g., "Insufficient context to answer this question") and set citations to [].
+3. Only cite chunks that directly support claims in your answer.
+4. If you cannot support the answer with citations, indicate insufficiency rather than making unsupported claims."""
+
+    user_prompt = f"""Query: {query}
+
+Context:
+{context}
+
+Allowed citation IDs: {allowed_citations_str}
+
+Provide your answer as JSON only:"""
+
     try:
-        # Initialize client - use only api_key to avoid version conflicts
-        # The 'proxies' error often comes from env vars or older library versions
         client = openai.OpenAI(api_key=api_key)
         
         response = client.chat.completions.create(
@@ -53,13 +89,41 @@ def call_openai_llm(query: str, chunks: List[dict]) -> str:
                 {"role": "user", "content": user_prompt}
             ],
             temperature=0.1,
-            max_tokens=500
+            max_tokens=600,
+            response_format={"type": "json_object"}
         )
-        answer = response.choices[0].message.content.strip()
-        logger.info("Successfully generated answer using OpenAI")
-        return answer
+        
+        # Parse JSON response
+        content = response.choices[0].message.content.strip()
+        
+        # Try to extract JSON if there's extra text
+        try:
+            result = json.loads(content)
+        except json.JSONDecodeError:
+            # Try to extract JSON from markdown code blocks or other formatting
+            json_match = re.search(r'\{[^{}]*"answer"[^{}]*"citations"[^{}]*\}', content, re.DOTALL)
+            if json_match:
+                result = json.loads(json_match.group(0))
+            else:
+                raise ValueError(f"Could not parse JSON from response: {content[:200]}")
+        
+        # Validate structure
+        if "answer" not in result or "citations" not in result:
+            raise ValueError(f"Response missing required fields. Got: {list(result.keys())}")
+        
+        if not isinstance(result["answer"], str):
+            raise ValueError(f"Answer must be a string, got: {type(result['answer'])}")
+        
+        if not isinstance(result["citations"], list):
+            raise ValueError(f"Citations must be a list, got: {type(result['citations'])}")
+        
+        # Ensure citations are strings
+        result["citations"] = [str(c) for c in result["citations"]]
+        
+        logger.info(f"Successfully generated structured answer with {len(result['citations'])} citations")
+        return result
+        
     except TypeError as e:
-        # Handle version-specific errors (e.g., 'proxies' argument)
         error_msg = str(e)
         if "unexpected keyword argument" in error_msg:
             logger.error(f"OpenAI client version incompatibility: {error_msg}")
@@ -72,26 +136,36 @@ def call_openai_llm(query: str, chunks: List[dict]) -> str:
         raise
 
 
-def generate_stub_answer(query: str, chunks: List[dict]) -> str:
+def generate_stub_answer(query: str, chunks: List[dict]) -> Dict[str, any]:
     """
-    Generate a stub answer when OpenAI is not available.
-    Uses a simple heuristic: echo relevant chunks with a basic summary.
+    Generate a stub answer with citations when OpenAI is not available.
+    Returns structured JSON with valid citations that reference retrieved chunks.
     """
     logger.info("Using stub answer generator (OpenAI not available)")
     
     if not chunks:
-        return "I don't have enough information to answer this query."
+        return {
+            "answer": "I don't have enough information to answer this query based on the retrieved documents.",
+            "citations": []
+        }
     
-    # Check for conflicting information (same topic, different policies)
-    # Look for chunks with similar doc_ids but different timestamps/content
+    # Get allowed citation IDs
+    allowed_citations = get_allowed_citation_ids(chunks)
+    top_chunk = chunks[0]
+    
+    # Extract key information from query and chunks
+    query_lower = query.lower()
+    
+    # Generate answer and always include at least one citation
+    citations = [top_chunk["chunk_id"]]
+    
+    # Check for conflicting information
     conflicting_chunks = []
     for i, chunk in enumerate(chunks):
         for j, other_chunk in enumerate(chunks[i+1:], start=i+1):
-            # Check if they're about the same topic but have different policies
             if (chunk['doc_id'] != other_chunk['doc_id'] and 
                 ('security' in chunk['doc_id'].lower() or 'policy' in chunk['doc_id'].lower()) and
                 ('security' in other_chunk['doc_id'].lower() or 'policy' in other_chunk['doc_id'].lower())):
-                # Check for conflicting language (one says "must not", other says "may")
                 text1 = chunk['text'].lower()
                 text2 = other_chunk['text'].lower()
                 if (('must not' in text1 or 'cannot' in text1) and ('may' in text2 or 'can' in text2)) or \
@@ -101,13 +175,8 @@ def generate_stub_answer(query: str, chunks: List[dict]) -> str:
         if conflicting_chunks:
             break
     
-    # Extract key information from query and chunks
-    query_lower = query.lower()
-    top_chunk = chunks[0]
-    
-    # Handle conflicts
+    # Generate answer based on context
     if conflicting_chunks:
-        # Sort by timestamp (newer first)
         sorted_conflicts = sorted(conflicting_chunks, key=lambda x: x['timestamp'], reverse=True)
         newer = sorted_conflicts[0]
         older = sorted_conflicts[1]
@@ -116,8 +185,8 @@ def generate_stub_answer(query: str, chunks: List[dict]) -> str:
         answer += f"Current Policy ({newer['timestamp'][:10]}): {newer['text']}\n\n"
         answer += f"Legacy Policy ({older['timestamp'][:10]}): {older['text']}\n\n"
         answer += f"Note: The current policy (newer) should take precedence."
+        citations = [newer["chunk_id"], older["chunk_id"]]
     elif "yes" in query_lower or "no" in query_lower or "can" in query_lower or "may" in query_lower:
-        # Try to extract yes/no signals from chunks
         text_lower = top_chunk['text'].lower()
         if "must not" in text_lower or "cannot" in text_lower or "non-refundable" in text_lower:
             answer = f"Based on the retrieved information: No. {top_chunk['text']}"
@@ -125,35 +194,46 @@ def generate_stub_answer(query: str, chunks: List[dict]) -> str:
             answer = f"Based on the retrieved information: Yes, but with conditions. {top_chunk['text']}"
         else:
             answer = f"Based on the retrieved information: {top_chunk['text']}"
+        
         if len(chunks) > 1:
             answer += f"\n\nAdditional context: {chunks[1]['text'][:150]}..."
+            citations.append(chunks[1]["chunk_id"])
     elif "what" in query_lower or "how" in query_lower or "when" in query_lower:
-        # Information-seeking question
         answer = f"Based on the retrieved documents: {top_chunk['text']}"
         if len(chunks) > 1:
             answer += f"\n\nAdditional context: {chunks[1]['text'][:200]}..."
+            citations.append(chunks[1]["chunk_id"])
     else:
-        # Generic answer
         answer = f"Based on the retrieved context: {top_chunk['text']}"
         if len(chunks) > 1:
             answer += f"\n\nAdditional context: {chunks[1]['text'][:200]}..."
+            citations.append(chunks[1]["chunk_id"])
+    
+    # Limit citations to max 5
+    citations = citations[:5]
+    
+    # Ensure all citations are valid
+    citations = [c for c in citations if c in allowed_citations]
     
     # Add note that this is a stub
-    answer += "\n\n[Note: This is a stub answer. Set OPENAI_API_KEY in .env to use real LLM for better conflict resolution.]"
+    answer += "\n\n[Note: This is a stub answer. Set OPENAI_API_KEY in .env to use real LLM.]"
     
-    return answer
+    return {
+        "answer": answer,
+        "citations": citations
+    }
 
 
-def generate_answer(query: str, chunks: List[dict]) -> str:
+def generate_answer(query: str, chunks: List[dict]) -> Dict[str, any]:
     """
-    Generate an answer using OpenAI if available, otherwise use stub.
+    Generate a structured answer with citations using OpenAI if available, otherwise use stub.
     
     Args:
         query: User query
         chunks: Retrieved chunks with metadata
     
     Returns:
-        Generated answer string
+        Dict with keys: "answer" (str) and "citations" (List[str])
     """
     # Try OpenAI first if available and key is set
     if OPENAI_AVAILABLE and os.getenv("OPENAI_API_KEY"):
@@ -164,4 +244,3 @@ def generate_answer(query: str, chunks: List[dict]) -> str:
             return generate_stub_answer(query, chunks)
     else:
         return generate_stub_answer(query, chunks)
-

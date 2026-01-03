@@ -1,5 +1,5 @@
 """
-FastAPI application for RAG MVP Day 2.
+FastAPI application for RAG MVP Day 3.
 """
 import logging
 from pathlib import Path
@@ -14,6 +14,7 @@ from rag.config import DEFAULT_TOP_K, DEFAULT_FRESHNESS_DAYS
 from rag.ingest import initialize_rag_index
 from rag.llm import generate_answer
 from rag.retrieve import compute_retrieval_quality, retrieve
+from rag.validate import validate_citations
 from rag.schemas import (
     AnswerRequest,
     AnswerResponse,
@@ -22,6 +23,9 @@ from rag.schemas import (
     DocsResponse,
     DocumentInfo,
     RetrievalResult,
+    ValidateRequest,
+    ValidateResponse,
+    ValidationResult,
 )
 
 # Configure logging
@@ -33,14 +37,17 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="RAG MVP - Day 2",
-    description="A minimal RAG system with naive retrieval, LLM answering, and retrieval quality signals",
-    version="0.2.0"
+    title="RAG MVP - Day 3",
+    description="A minimal RAG system with naive retrieval, LLM answering, retrieval quality signals, and citation enforcement",
+    version="0.3.0"
 )
 
 # Global state: initialized on startup
 vector_index = None
 documents = []
+
+# Safe fallback answer when citations are invalid
+SAFE_FALLBACK_ANSWER = "I can't provide a cited answer because the citations couldn't be verified against the retrieved documents."
 
 
 @app.on_event("startup")
@@ -88,10 +95,12 @@ async def get_docs():
 @app.post("/answer", response_model=AnswerResponse)
 async def answer_query(request: AnswerRequest):
     """
-    Answer a query using RAG:
+    Answer a query using RAG with citation enforcement:
     1. Retrieve top-k relevant chunks
-    2. Generate answer using LLM with retrieved context
-    3. Compute and return retrieval quality signals
+    2. Generate answer with citations using LLM
+    3. Validate citations against retrieved chunks
+    4. BLOCK response if citations are invalid
+    5. Compute and return retrieval quality signals
     """
     if vector_index is None:
         raise HTTPException(status_code=503, detail="RAG index not initialized")
@@ -106,18 +115,37 @@ async def answer_query(request: AnswerRequest):
         # Compute retrieval quality signals
         retrieval_quality = compute_retrieval_quality(retrieved_chunks, freshness_days)
         
-        # Log retrieval signals
+        # Generate answer with citations
+        llm_result = generate_answer(request.query, retrieved_chunks)
+        answer = llm_result["answer"]
+        citations = llm_result["citations"]
+        
+        # Validate citations
+        citation_valid, errors, warnings = validate_citations(
+            citations, retrieved_chunks, answer
+        )
+        
+        # Log retrieval and validation signals
         top_doc_ids_str = ", ".join(retrieval_quality.top_doc_ids[:3])
         logger.info(
             f"Query: {request.query[:50]}, "
             f"top_k: {request.top_k}, "
             f"retrieval_confidence_max: {retrieval_quality.confidence.max:.4f}, "
             f"freshness_violation: {retrieval_quality.freshness.freshness_violation}, "
+            f"citation_valid: {citation_valid}, "
             f"top_doc_ids: [{top_doc_ids_str}]"
         )
         
-        # Generate answer
-        answer = generate_answer(request.query, retrieved_chunks)
+        # Determine decision: BLOCK if citations invalid
+        if not citation_valid:
+            decision = "BLOCK"
+            answer = SAFE_FALLBACK_ANSWER
+            citations = []  # Clear invalid citations
+            logger.warning(f"BLOCKED answer due to invalid citations. Errors: {errors}")
+        else:
+            decision = "ANSWER"
+            if warnings:
+                logger.info(f"Validation warnings: {warnings}")
         
         # Format response
         chunk_infos = [
@@ -133,12 +161,19 @@ async def answer_query(request: AnswerRequest):
         
         response = AnswerResponse(
             query=request.query,
+            decision=decision,
             answer=answer,
+            citations=citations,
             retrieval=RetrievalResult(
                 top_k=request.top_k,
                 chunks=chunk_infos
             ),
-            retrieval_quality=retrieval_quality
+            retrieval_quality=retrieval_quality,
+            validation=ValidationResult(
+                citation_valid=citation_valid,
+                errors=errors,
+                warnings=warnings
+            )
         )
         
         return response
@@ -146,6 +181,43 @@ async def answer_query(request: AnswerRequest):
     except Exception as e:
         logger.error(f"Error processing query: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error processing query: {str(e)}")
+
+
+@app.post("/validate", response_model=ValidateResponse)
+async def validate_citations_endpoint(request: ValidateRequest):
+    """
+    Validate citations against retrieved chunks.
+    Useful for testing citation validation logic independently.
+    """
+    try:
+        # Convert ChunkInfo to dict format expected by validator
+        retrieved_chunks_dict = [
+            {
+                "doc_id": chunk.doc_id,
+                "chunk_id": chunk.chunk_id,
+                "timestamp": chunk.timestamp,
+                "similarity": chunk.similarity,
+                "text": chunk.text
+            }
+            for chunk in request.retrieved_chunks
+        ]
+        
+        # Validate citations
+        citation_valid, errors, warnings = validate_citations(
+            request.citations,
+            retrieved_chunks_dict,
+            request.answer
+        )
+        
+        return ValidateResponse(
+            citation_valid=citation_valid,
+            errors=errors,
+            warnings=warnings
+        )
+    
+    except Exception as e:
+        logger.error(f"Error in validation: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error in validation: {str(e)}")
 
 
 @app.get("/debug/retrieval", response_model=DebugRetrievalResponse)
