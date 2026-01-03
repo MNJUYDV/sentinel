@@ -1,0 +1,63 @@
+[
+  {
+    "doc_id": "security-policy-v2.1",
+    "title": "Data Security Policy - Version 2.1",
+    "timestamp": "2024-03-15T10:00:00Z",
+    "text": "This document outlines the security requirements for handling sensitive customer data.\n\nSSNs must not be stored in plaintext; encrypt at rest.\n\nAll sensitive data must be encrypted using AES-256 encryption with proper key management."
+  },
+  {
+    "doc_id": "security-policy-legacy-v1.0",
+    "title": "Internal Security Guidelines - Legacy",
+    "timestamp": "2020-06-10T14:30:00Z",
+    "text": "These are the legacy security guidelines for restricted internal systems.\n\nSSNs may be stored in plaintext in restricted internal systems.\n\nThis applies only to internal-only databases with no external access."
+  },
+  {
+    "doc_id": "api-rate-limits-2021",
+    "title": "API Rate Limiting Guidelines",
+    "timestamp": "2021-08-20T09:15:00Z",
+    "text": "API rate limiting policy document from 2021.\n\nThe standard API rate limit is 1000 requests per hour per API key.\n\nRate limits are enforced at the gateway level and apply to all endpoints."
+  },
+  {
+    "doc_id": "api-rate-limits-2024",
+    "title": "API Rate Limiting Policy - Updated",
+    "timestamp": "2024-01-10T11:00:00Z",
+    "text": "Updated API rate limiting policy effective January 2024.\n\nThe current API rate limit is 300 requests per hour with burst limits up to 50 requests per minute.\n\nRate limits are tiered by subscription level and are enforced at the gateway level."
+  },
+  {
+    "doc_id": "refund-policy-main",
+    "title": "Customer Refund Policy",
+    "timestamp": "2023-11-05T13:20:00Z",
+    "text": "Standard refund policy for all purchases.\n\nRefunds allowed within 14 days of purchase.\n\nCustomers must provide proof of purchase and reason for refund request."
+  },
+  {
+    "doc_id": "refund-policy-exceptions",
+    "title": "Refund Policy Exceptions",
+    "timestamp": "2023-11-05T13:25:00Z",
+    "text": "Exceptions to the standard refund policy.\n\nPromotional purchases are non-refundable.\n\nThis includes items purchased with discount codes, special offers, or during promotional events."
+  },
+  {
+    "doc_id": "data-retention-policy",
+    "title": "Data Retention and Deletion Policy",
+    "timestamp": "2024-02-01T10:00:00Z",
+    "text": "Policy governing how long we retain user data.\n\nDeleted messages are removed within 30 days of deletion request.\n\nExceptions apply for legal hold requirements where messages may be retained longer.\n\nLegal hold messages are retained until the hold is released by legal team."
+  },
+  {
+    "doc_id": "encryption-standards",
+    "title": "Encryption Standards and Best Practices",
+    "timestamp": "2024-03-20T14:00:00Z",
+    "text": "Detailed encryption standards for all data at rest and in transit.\n\nAll data at rest must use AES-256 encryption.\n\nTLS 1.3 is required for all data in transit.\n\nEncryption keys must be rotated every 90 days."
+  },
+  {
+    "doc_id": "privacy-policy",
+    "title": "Privacy Policy",
+    "timestamp": "2024-04-01T09:00:00Z",
+    "text": "Comprehensive privacy policy outlining data collection and usage.\n\nWe collect minimal data necessary for service functionality.\n\nUser data is never sold to third parties.\n\nData is retained according to our data retention policy."
+  },
+  {
+    "doc_id": "access-control",
+    "title": "Access Control Guidelines",
+    "timestamp": "2024-03-10T16:00:00Z",
+    "text": "Guidelines for managing access to internal systems.\n\nPrinciple of least privilege applies to all system access.\n\nMulti-factor authentication is required for all administrative access.\n\nAccess reviews must be conducted quarterly."
+  }
+]
+
