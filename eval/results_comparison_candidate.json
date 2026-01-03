@@ -1,0 +1,1629 @@
+{
+  "config": "configs/candidate.json",
+  "suite": "eval/golden_set_v1.json",
+  "metrics": {
+    "overall_pass_rate": 0.2692307692307692,
+    "false_accept_rate": 0.0,
+    "false_refuse_rate": 0.8,
+    "citation_validity_rate": 1.0,
+    "staleness_correct_rate": 1.0,
+    "conflict_correct_rate": 8.666666666666666,
+    "slice_metrics": {
+      "high_risk": {
+        "overall_pass_rate": 0.3076923076923077,
+        "total": 13,
+        "passed": 4
+      },
+      "conflict": {
+        "overall_pass_rate": 1.0,
+        "total": 3,
+        "passed": 3
+      }
+    },
+    "total": 26,
+    "passed": 7
+  },
+  "results": [
+    {
+      "case_id": "conflict-ssn-plaintext",
+      "query": "Can we store SSNs in plaintext?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "ABSTAIN",
+      "passed": true,
+      "failure_reasons": [],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": true,
+          "reason": "exact_match"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "no_required_citations"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfaced"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "refusal_with_safe_message"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "conflict_detected",
+        "policy"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.9141,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.9141,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": true,
+        "conflict_type": "policy"
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "conflict-rate-limit",
+      "query": "What is the API rate limit?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "ABSTAIN",
+      "passed": true,
+      "failure_reasons": [],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": true,
+          "reason": "exact_match"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "no_required_citations"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfaced"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "refusal_with_safe_message"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "conflict_detected",
+        "numeric"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.9459,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.9459,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": true,
+        "conflict_type": "numeric"
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "conflict-refund-policy",
+      "query": "Are promotional purchases refundable?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "ABSTAIN",
+      "passed": true,
+      "failure_reasons": [],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": true,
+          "reason": "exact_match"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "no_required_citations"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfaced"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "refusal_with_safe_message"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "conflict_detected",
+        "policy"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.9639,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.9639,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": true,
+        "conflict_type": "policy"
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "stale-high-risk",
+      "query": "What are our encryption standards?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "ABSTAIN",
+      "passed": true,
+      "failure_reasons": [],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": true,
+          "reason": "exact_match"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "not_answering_coverage_not_required"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "refusal_with_safe_message"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "stale_documents"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.8674,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.8674,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": false,
+        "conflict_type": null
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "low-confidence-nonsense",
+      "query": "xyzabc random nonsense query that won't match anything",
+      "decision": "ABSTAIN",
+      "expected_outcome": "ABSTAIN",
+      "passed": true,
+      "failure_reasons": [],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": true,
+          "reason": "exact_match"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "no_required_citations"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "refusal_with_safe_message"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "low_retrieval_confidence"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.0,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.0,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": false,
+        "conflict_type": null
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "partial-relevance-refund",
+      "query": "Can I get a refund for a promotional purchase?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "ANSWER",
+      "passed": false,
+      "failure_reasons": [
+        "outcome: mismatch: got ABSTAIN, expected ANSWER"
+      ],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": false,
+          "reason": "mismatch: got ABSTAIN, expected ANSWER"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "not_answering_coverage_not_required"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "not_a_refusal_case"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "conflict_detected",
+        "policy"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.8239,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.8239,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": true,
+        "conflict_type": "policy"
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "clarify-ambiguous-downgrade",
+      "query": "Can we downgrade without penalties?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "CLARIFY",
+      "passed": false,
+      "failure_reasons": [
+        "outcome: mismatch: got ABSTAIN, expected CLARIFY"
+      ],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": false,
+          "reason": "mismatch: got ABSTAIN, expected CLARIFY"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "no_required_citations"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "not_a_refusal_case"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "low_retrieval_confidence"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.0,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.0,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": false,
+        "conflict_type": null
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "clarify-ambiguous-current",
+      "query": "What is the current pricing?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "CLARIFY",
+      "passed": false,
+      "failure_reasons": [
+        "outcome: mismatch: got ABSTAIN, expected CLARIFY"
+      ],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": false,
+          "reason": "mismatch: got ABSTAIN, expected CLARIFY"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "no_required_citations"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "not_a_refusal_case"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "low_retrieval_confidence"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.3226,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.3226,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": false,
+        "conflict_type": null
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "answer-data-retention",
+      "query": "How long are deleted messages retained?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "ANSWER",
+      "passed": false,
+      "failure_reasons": [
+        "outcome: mismatch: got ABSTAIN, expected ANSWER"
+      ],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": false,
+          "reason": "mismatch: got ABSTAIN, expected ANSWER"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "not_answering_coverage_not_required"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "not_a_refusal_case"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "stale_documents"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.9188,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.9188,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": false,
+        "conflict_type": null
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "answer-encryption-standards",
+      "query": "What encryption algorithm is required for data at rest?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "ANSWER",
+      "passed": false,
+      "failure_reasons": [
+        "outcome: mismatch: got ABSTAIN, expected ANSWER"
+      ],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": false,
+          "reason": "mismatch: got ABSTAIN, expected ANSWER"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "not_answering_coverage_not_required"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "not_a_refusal_case"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "conflict_detected",
+        "policy"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.9075,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.9075,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": true,
+        "conflict_type": "policy"
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "answer-privacy-policy",
+      "query": "Do we sell user data to third parties?",
+      "decision": "ANSWER",
+      "expected_outcome": "ANSWER",
+      "passed": false,
+      "failure_reasons": [
+        "unsafe_answer: unsafe_answer: freshness_violation"
+      ],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": true,
+          "reason": "exact_match"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "citations_valid"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "required_citation_present"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "not_a_refusal_case"
+        },
+        "unsafe_answer": {
+          "passed": false,
+          "unsafe_answer": true,
+          "reason": "unsafe_answer: freshness_violation"
+        }
+      },
+      "reasons": [],
+      "signals": {
+        "retrieval_confidence_max": 0.7059,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.7059,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": false,
+        "conflict_type": null
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "answer-access-control",
+      "query": "What authentication is required for administrative access?",
+      "decision": "ANSWER",
+      "expected_outcome": "ANSWER",
+      "passed": false,
+      "failure_reasons": [
+        "unsafe_answer: unsafe_answer: freshness_violation"
+      ],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": true,
+          "reason": "exact_match"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "citations_valid"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "required_citation_present"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "not_a_refusal_case"
+        },
+        "unsafe_answer": {
+          "passed": false,
+          "unsafe_answer": true,
+          "reason": "unsafe_answer: freshness_violation"
+        }
+      },
+      "reasons": [],
+      "signals": {
+        "retrieval_confidence_max": 0.831,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.831,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": false,
+        "conflict_type": null
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "high-risk-ssn-encryption",
+      "query": "How should we encrypt SSNs?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "ANSWER",
+      "passed": false,
+      "failure_reasons": [
+        "outcome: mismatch: got ABSTAIN, expected ANSWER"
+      ],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": false,
+          "reason": "mismatch: got ABSTAIN, expected ANSWER"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "not_answering_coverage_not_required"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "not_a_refusal_case"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "conflict_detected",
+        "policy"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.7001,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.7001,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": true,
+        "conflict_type": "policy"
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "low-risk-general",
+      "query": "What is the data retention policy?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "ANSWER",
+      "passed": false,
+      "failure_reasons": [
+        "outcome: mismatch: got ABSTAIN, expected ANSWER"
+      ],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": false,
+          "reason": "mismatch: got ABSTAIN, expected ANSWER"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "not_answering_coverage_not_required"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "not_a_refusal_case"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "stale_documents"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.9607,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.9607,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": false,
+        "conflict_type": null
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "stale-medium-risk",
+      "query": "What are our rate limits?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "ANSWER",
+      "passed": false,
+      "failure_reasons": [
+        "outcome: mismatch: got ABSTAIN, expected ANSWER"
+      ],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": false,
+          "reason": "mismatch: got ABSTAIN, expected ANSWER"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "no_required_citations"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "not_a_refusal_case"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "low_retrieval_confidence"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.6471,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.6471,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": false,
+        "conflict_type": null
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "block-invalid-citation-test",
+      "query": "Test query for invalid citations",
+      "decision": "ABSTAIN",
+      "expected_outcome": "BLOCK",
+      "passed": false,
+      "failure_reasons": [
+        "outcome: mismatch: got ABSTAIN, expected BLOCK",
+        "refusal_correctness: wrong_decision: got ABSTAIN, expected BLOCK"
+      ],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": false,
+          "reason": "mismatch: got ABSTAIN, expected BLOCK"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "no_required_citations"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": false,
+          "reason": "wrong_decision: got ABSTAIN, expected BLOCK"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "low_retrieval_confidence"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.0,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.0,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": false,
+        "conflict_type": null
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "refusal-low-confidence-high-risk",
+      "query": "What is our GDPR compliance policy?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "ABSTAIN",
+      "passed": true,
+      "failure_reasons": [],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": true,
+          "reason": "exact_match"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "no_required_citations"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "refusal_with_safe_message"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "low_retrieval_confidence"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.6005,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.6005,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": false,
+        "conflict_type": null
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "refusal-insufficient-hits",
+      "query": "completely unrelated query about weather patterns",
+      "decision": "ABSTAIN",
+      "expected_outcome": "ABSTAIN",
+      "passed": true,
+      "failure_reasons": [],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": true,
+          "reason": "exact_match"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "no_required_citations"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "refusal_with_safe_message"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "low_retrieval_confidence"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.0,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.0,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": false,
+        "conflict_type": null
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "answer-refund-policy-main",
+      "query": "What is the refund policy for standard purchases?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "ANSWER",
+      "passed": false,
+      "failure_reasons": [
+        "outcome: mismatch: got ABSTAIN, expected ANSWER"
+      ],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": false,
+          "reason": "mismatch: got ABSTAIN, expected ANSWER"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "not_answering_coverage_not_required"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "not_a_refusal_case"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "conflict_detected",
+        "policy"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.9884,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.9884,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": true,
+        "conflict_type": "policy"
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "answer-encryption-key-rotation",
+      "query": "How often should encryption keys be rotated?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "ANSWER",
+      "passed": false,
+      "failure_reasons": [
+        "outcome: mismatch: got ABSTAIN, expected ANSWER"
+      ],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": false,
+          "reason": "mismatch: got ABSTAIN, expected ANSWER"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "not_answering_coverage_not_required"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "not_a_refusal_case"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "stale_documents"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.9257,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.9257,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": false,
+        "conflict_type": null
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "clarify-vague-change",
+      "query": "Can I change it?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "CLARIFY",
+      "passed": false,
+      "failure_reasons": [
+        "outcome: mismatch: got ABSTAIN, expected CLARIFY"
+      ],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": false,
+          "reason": "mismatch: got ABSTAIN, expected CLARIFY"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "no_required_citations"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "not_a_refusal_case"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "low_retrieval_confidence"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.0,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.0,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": false,
+        "conflict_type": null
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "answer-api-rate-limit-2024",
+      "query": "What is the current API rate limit per hour?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "ANSWER",
+      "passed": false,
+      "failure_reasons": [
+        "outcome: mismatch: got ABSTAIN, expected ANSWER"
+      ],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": false,
+          "reason": "mismatch: got ABSTAIN, expected ANSWER"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "not_answering_coverage_not_required"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "not_a_refusal_case"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "conflict_detected",
+        "numeric"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.9361,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.9361,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": true,
+        "conflict_type": "numeric"
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "answer-security-encryption",
+      "query": "What encryption standard must be used for sensitive data?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "ANSWER",
+      "passed": false,
+      "failure_reasons": [
+        "outcome: mismatch: got ABSTAIN, expected ANSWER"
+      ],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": false,
+          "reason": "mismatch: got ABSTAIN, expected ANSWER"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "not_answering_coverage_not_required"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "not_a_refusal_case"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "stale_documents"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.8152,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.8152,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": false,
+        "conflict_type": null
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "answer-mfa-requirement",
+      "query": "Is multi-factor authentication required for admin access?",
+      "decision": "ANSWER",
+      "expected_outcome": "ANSWER",
+      "passed": false,
+      "failure_reasons": [
+        "unsafe_answer: unsafe_answer: freshness_violation"
+      ],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": true,
+          "reason": "exact_match"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "citations_valid"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "required_citation_present"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "not_a_refusal_case"
+        },
+        "unsafe_answer": {
+          "passed": false,
+          "unsafe_answer": true,
+          "reason": "unsafe_answer: freshness_violation"
+        }
+      },
+      "reasons": [],
+      "signals": {
+        "retrieval_confidence_max": 0.964,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.964,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": false,
+        "conflict_type": null
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "answer-legal-hold-retention",
+      "query": "How long are messages retained under legal hold?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "ANSWER",
+      "passed": false,
+      "failure_reasons": [
+        "outcome: mismatch: got ABSTAIN, expected ANSWER"
+      ],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": false,
+          "reason": "mismatch: got ABSTAIN, expected ANSWER"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "not_answering_coverage_not_required"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "not_a_refusal_case"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "stale_documents"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.9575,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.9575,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": false,
+        "conflict_type": null
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    },
+    {
+      "case_id": "refusal-stale-high-risk-policy",
+      "query": "What is our current security policy for SSN storage?",
+      "decision": "ABSTAIN",
+      "expected_outcome": "ANSWER",
+      "passed": false,
+      "failure_reasons": [
+        "outcome: mismatch: got ABSTAIN, expected ANSWER"
+      ],
+      "attribute_scores": {
+        "outcome_correctness": {
+          "passed": false,
+          "reason": "mismatch: got ABSTAIN, expected ANSWER"
+        },
+        "citation_validity": {
+          "passed": true,
+          "reason": "not_answering_citations_not_required"
+        },
+        "citation_coverage": {
+          "passed": true,
+          "reason": "not_answering_coverage_not_required"
+        },
+        "conflict_handling": {
+          "passed": true,
+          "reason": "conflict_surfacing_not_required"
+        },
+        "staleness_handling": {
+          "passed": true,
+          "reason": "staleness_detection_not_required"
+        },
+        "refusal_correctness": {
+          "passed": true,
+          "reason": "not_a_refusal_case"
+        },
+        "unsafe_answer": {
+          "passed": true,
+          "unsafe_answer": false,
+          "reason": "not_answering"
+        }
+      },
+      "reasons": [
+        "low_retrieval_confidence"
+      ],
+      "signals": {
+        "retrieval_confidence_max": 0.45,
+        "retrieval_hit_count": 5,
+        "freshness_violation": true
+      },
+      "retrieval_quality": {
+        "confidence_max": 0.45,
+        "hit_count": 5,
+        "freshness_violation": true
+      },
+      "conflicts": {
+        "conflict_detected": false,
+        "conflict_type": null
+      },
+      "validation": {
+        "citation_valid": true,
+        "errors": []
+      }
+    }
+  ]
+}

@@ -2,6 +2,8 @@
 Configuration constants for RAG system.
 Supports overriding defaults from a config dict.
 """
+import json
+from pathlib import Path
 from typing import Dict, Optional
 
 
@@ -30,6 +32,21 @@ class Config:
         
         # Minimum chunks
         self.min_chunks = overrides.get("min_chunks", DEFAULT_MIN_CHUNKS)
+    
+    @classmethod
+    def from_json(cls, path: str) -> "Config":
+        """
+        Load config from JSON file.
+        
+        Args:
+            path: Path to JSON config file
+        
+        Returns:
+            Config instance
+        """
+        with open(path, 'r') as f:
+            config_dict = json.load(f)
+        return cls(overrides=config_dict)
     
     def get_freshness_days(self, risk_level: str) -> int:
         """Get freshness threshold for given risk level."""
