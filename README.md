@@ -1,8 +1,8 @@
 # sentinel
 
-# RAG MVP - Day 4
+# RAG MVP - Day 5
 
-A minimal RAG (Retrieval-Augmented Generation) system that retrieves relevant document chunks and uses an LLM to generate answers. **Day 3 added citation enforcement and validation. Day 4 adds conflict detection to surface contradictory policy statements.**
+A minimal RAG (Retrieval-Augmented Generation) system that retrieves relevant document chunks and uses an LLM to generate answers. **Day 3 added citation enforcement and validation. Day 4 adds conflict detection. Day 5 adds a decision engine with abstention logic, risk classification, and clarification requests.**
 
 ## Features
 
@@ -13,9 +13,12 @@ A minimal RAG (Retrieval-Augmented Generation) system that retrieves relevant do
 - **Citation Validation**: Enforces citations reference actual retrieved chunks
 - **Hard Blocking**: Responses with invalid citations are BLOCKED with safe fallback
 - **Conflict Detection**: Detects contradictory policy statements in retrieved chunks
-- **Abstention on Conflicts**: System ABSTAINS when conflicts are detected (surfaces conflict, no silent arbitration)
+- **Decision Engine**: Central guardrail that prevents fluent-but-wrong answers through abstention logic
+- **Risk Classification**: Classifies queries as high/medium/low risk based on keywords
+- **Abstention Logic**: ABSTAINS when retrieval confidence is low, documents are stale, or insufficient evidence
+- **Clarification Requests**: CLARIFY decision for ambiguous queries that need user context
 - **Retrieval Quality Signals**: Confidence metrics and freshness/staleness detection
-- **Debug Endpoints**: Inspect retrieval, validate citations, and detect conflicts independently
+- **Debug Endpoints**: Inspect retrieval, conflicts, and decision engine independently
 - **REST API**: FastAPI endpoints for querying and system info
 
 ## Project Structure
@@ -28,7 +31,8 @@ rag_mvp/
 ├── tests/                # Unit tests
 │   ├── test_retrieval_quality.py
 │   ├── test_citation_validation.py
-│   └── test_conflict_detection.py
+│   ├── test_conflict_detection.py
+│   └── test_decision.py
 ├── data/
 │   └── docs.json        # Seed documents
 └── rag/
@@ -39,7 +43,9 @@ rag_mvp/
     ├── retrieve.py      # Retrieval logic + quality signals
     ├── llm.py          # LLM integration (structured output)
     ├── validate.py     # Citation validation
-    └── conflicts.py    # Conflict detection
+    ├── conflicts.py    # Conflict detection
+    ├── risk.py         # Risk classification
+    └── decision.py     # Decision engine
 ```
 
 ## Installation
@@ -85,6 +91,7 @@ Or run specific test suites:
 pytest tests/test_retrieval_quality.py -v
 pytest tests/test_citation_validation.py -v
 pytest tests/test_conflict_detection.py -v
+pytest tests/test_decision.py -v
 ```
 
 ## API Endpoints
@@ -129,6 +136,12 @@ Answer a query using RAG retrieval and generation with citation enforcement.
     "conflict_type": null,
     "pairs": [],
     "summary": "No conflicts detected"
+  },
+  "reasons": [],
+  "signals": {
+    "retrieval_confidence_max": 0.85,
+    "retrieval_hit_count": 3,
+    "freshness_violation": false
   }
 }
 ```
@@ -182,7 +195,79 @@ Answer a query using RAG retrieval and generation with citation enforcement.
       "Citation 'invalid-chunk-id' does not match any retrieved chunk"
     ],
     "warnings": []
+  },
+  "conflicts": {...},
+  "reasons": ["invalid_citations"],
+  "signals": {...}
+}
+```
+
+**Response (Low Confidence - ABSTAIN):**
+```json
+{
+  "query": "What is our refund policy?",
+  "decision": "ABSTAIN",
+  "answer": "I don't have enough reliable evidence in the retrieved documents to answer this safely.",
+  "citations": [],
+  "retrieval": {...},
+  "retrieval_quality": {
+    "confidence": {
+      "max": 0.45,
+      "mean": 0.40,
+      "hit_count": 2
+    },
+    ...
+  },
+  "validation": {...},
+  "conflicts": {...},
+  "reasons": ["low_retrieval_confidence"],
+  "signals": {
+    "retrieval_confidence_max": 0.45,
+    "retrieval_hit_count": 2,
+    "freshness_violation": false
   }
+}
+```
+
+**Response (Stale Documents - ABSTAIN):**
+```json
+{
+  "query": "What is our refund policy?",
+  "decision": "ABSTAIN",
+  "answer": "The retrieved sources appear outdated, so I can't answer confidently.",
+  "citations": [],
+  "retrieval": {...},
+  "retrieval_quality": {
+    "freshness": {
+      "freshness_violation": true,
+      "freshness_violation_count": 3,
+      "freshness_days": 30
+    },
+    ...
+  },
+  "validation": {...},
+  "conflicts": {...},
+  "reasons": ["stale_documents"],
+  "signals": {
+    "retrieval_confidence_max": 0.85,
+    "freshness_violation": true
+  }
+}
+```
+
+**Response (Ambiguous Query - CLARIFY):**
+```json
+{
+  "query": "Can we downgrade without penalties?",
+  "decision": "CLARIFY",
+  "answer": "Could you clarify which plan type, region, or timeframe you're asking about?",
+  "citations": [],
+  "retrieval": {...},
+  "retrieval_quality": {...},
+  "validation": {...},
+  "conflicts": {...},
+  "reasons": ["ambiguous_query"],
+  "signals": {...}
 }
 ```
 
@@ -273,6 +358,50 @@ Debug endpoint to inspect retrieval results, quality signals, and conflict detec
 curl "http://localhost:8000/debug/conflicts?q=Can%20we%20store%20SSNs%20in%20plaintext?&top_k=5"
 ```
 
+### GET /debug/decision
+
+Debug endpoint to inspect decision engine behavior without LLM call. Returns retrieval, conflicts, risk classification, and decision result.
+
+**Query Parameters:**
+- `q` (required): Query string
+- `top_k` (optional, default=5): Number of chunks to retrieve
+- `freshness_days` (optional, default=90): Freshness threshold in days
+
+**Example:**
+```bash
+curl "http://localhost:8000/debug/decision?q=What%20is%20our%20refund%20policy?&top_k=5"
+```
+
+**Response:**
+```json
+{
+  "query": "What is our refund policy?",
+  "risk": {
+    "risk_level": "high",
+    "matched_keywords": ["refund", "policy"]
+  },
+  "retrieval_quality": {...},
+  "conflicts": {...},
+  "validation": null,
+  "decision_result": {
+    "decision": "ABSTAIN",
+    "reasons": ["low_retrieval_confidence"],
+    "user_message": "I don't have enough reliable evidence in the retrieved documents to answer this safely.",
+    "thresholds": {
+      "conf_max": 0.70,
+      "freshness_days": 30,
+      "min_chunks": 2
+    },
+    "signals": {
+      "retrieval_confidence_max": 0.55,
+      "retrieval_hit_count": 3,
+      "freshness_violation": false
+    },
+    "risk": {...}
+  }
+}
+```
+
 ### GET /health
 
 Health check endpoint.
@@ -319,11 +448,42 @@ The system enforces the following validation rules:
 
 ## Decision Logic
 
-The system uses a precedence-based decision logic:
+The system uses a precedence-based decision logic with the following order:
+
+### Decision Precedence
 
 1. **BLOCK** (highest priority): If citations are invalid → return safe fallback, clear citations
-2. **ABSTAIN**: If conflicts are detected AND citations are valid → surface conflict, no silent arbitration
-3. **ANSWER** (default): If no conflicts and citations are valid → return LLM-generated answer
+2. **ABSTAIN** (conflicts): If conflicts are detected → surface conflict, no silent arbitration
+3. **ABSTAIN** (low confidence): If retrieval confidence < threshold OR hit count < minimum → insufficient evidence
+4. **ABSTAIN** (stale documents): If documents violate freshness threshold AND risk is high/medium → outdated sources
+5. **CLARIFY**: If query is ambiguous (missing context like plan type, region, timeframe) → ask clarifying question
+6. **ANSWER** (default): If all checks pass → return LLM-generated answer with citations
+
+### Risk-Based Thresholds
+
+The decision engine uses different thresholds based on query risk level:
+
+- **High Risk** (policy, legal, compliance, security, financial):
+  - Confidence threshold: 0.70
+  - Freshness threshold: 30 days
+  - Keywords: policy, legal, compliance, security, SSN, PII, encryption, SOC2, HIPAA, refund, chargeback, pricing, limits, retention, delete, GDPR
+
+- **Medium Risk** (operational):
+  - Confidence threshold: 0.60
+  - Freshness threshold: 90 days
+  - Keywords: rate limit, SLA, uptime, quota
+
+- **Low Risk** (general/educational):
+  - Confidence threshold: 0.60
+  - Freshness threshold: 90 days
+
+### Decision Types
+
+- **ANSWER**: Normal path - LLM generates answer with citations
+- **ANSWER_WITH_CAVEATS**: (Future) Answer with warnings about confidence/freshness
+- **CLARIFY**: Query needs clarification - returns clarifying question, no LLM call
+- **ABSTAIN**: Insufficient or unsafe evidence - returns abstention message, no LLM call
+- **BLOCK**: Invalid citations - returns safe fallback, no answer provided
 
 ## Conflict Detection
 
@@ -435,6 +595,52 @@ curl "http://localhost:8000/debug/conflicts?q=Can%20we%20store%20SSNs%20in%20pla
 
 This returns retrieval results, quality signals, and conflict detection without generating an answer.
 
+### 8. ABSTAIN due to Low Confidence
+```bash
+# Query with low retrieval confidence (use a query that doesn't match well)
+curl -X POST "http://localhost:8000/answer" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "xyzabc random query that wont match",
+    "top_k": 5
+  }'
+```
+
+This should return `decision: "ABSTAIN"` with `reasons: ["low_retrieval_confidence"]` or `["insufficient_retrieval_hits"]`.
+
+### 9. CLARIFY for Ambiguous Query
+```bash
+curl -X POST "http://localhost:8000/answer" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Can we downgrade without penalties?",
+    "top_k": 5
+  }'
+```
+
+This should return `decision: "CLARIFY"` with a clarifying question about plan type, region, or timeframe.
+
+### 10. ABSTAIN due to Staleness (High-Risk Query)
+```bash
+# Query with stale documents (requires docs older than 30 days for high-risk queries)
+curl -X POST "http://localhost:8000/answer" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What is our refund policy?",
+    "top_k": 5,
+    "freshness_days": 30
+  }'
+```
+
+If retrieved documents are older than 30 days (high-risk freshness threshold), this should return `decision: "ABSTAIN"` with `reasons: ["stale_documents"]`.
+
+### 11. Debug Decision Engine
+```bash
+curl "http://localhost:8000/debug/decision?q=What%20is%20our%20refund%20policy?&top_k=5"
+```
+
+This returns risk classification, retrieval quality, conflicts, and decision result without LLM call.
+
 ## Seed Documents
 
 The system comes with 10 seed documents in `data/docs.json` that include:
@@ -450,8 +656,12 @@ These are designed to test how the RAG system handles conflicts, stale data, and
 Default configuration is in `rag/config.py`:
 - `DEFAULT_TOP_K = 5`: Default number of chunks to retrieve
 - `DEFAULT_FRESHNESS_DAYS = 90`: Default freshness threshold in days
+- `DEFAULT_CONFIDENCE_THRESHOLD = 0.60`: Default confidence threshold for low/medium risk queries
+- `DEFAULT_CONFIDENCE_THRESHOLD_HIGH_RISK = 0.70`: Confidence threshold for high-risk queries
+- `DEFAULT_FRESHNESS_DAYS_HIGH_RISK = 30`: Freshness threshold for high-risk queries
+- `DEFAULT_MIN_CHUNKS = 2`: Minimum number of retrieved chunks required
 
-These can be overridden per request via API parameters.
+These can be overridden per request via API parameters (where applicable).
 
 ## Implementation Notes
 
@@ -485,16 +695,30 @@ These can be overridden per request via API parameters.
 - ✅ Added comprehensive unit tests for conflict detection
 - ✅ Updated schemas to include `ConflictResult` and `ConflictPair` types
 
+## Day 5 Changes
+
+- ✅ Added decision engine module (`rag/decision.py`) - central guardrail for safe responses
+- ✅ Added risk classification module (`rag/risk.py`) - classifies queries as high/medium/low risk
+- ✅ Implemented abstention logic based on retrieval confidence thresholds (risk-adaptive)
+- ✅ Added staleness-based abstention for high/medium risk queries
+- ✅ Added clarification request logic for ambiguous queries (CLARIFY decision)
+- ✅ Integrated decision engine into `/answer` endpoint (called before LLM to save cost)
+- ✅ Added `/debug/decision` endpoint to inspect decision engine behavior
+- ✅ Extended `/answer` response with `reasons` and `signals` fields
+- ✅ Updated schemas with `DecisionResult`, `RiskResult`, and enhanced `AnswerResponse`
+- ✅ Added comprehensive unit tests for decision engine and risk classification
+- ✅ Updated configuration with decision engine thresholds
+
 ## Next Steps (Future Days)
 
-- Add abstention logic based on retrieval quality thresholds (Day 5)
-- Implement staleness-based abstention (Day 5+)
+- Add LLM-judge scoring for answer quality (Day 6)
 - Add source citation formatting in answer text
 - Implement reranking based on freshness and confidence
 - Add query expansion and refinement
 - Implement conversation history
 - Add evaluation metrics
 - Human routing workflow for conflicts
+- Canary rollout and config promotion gates (Day 7)
 
 ## Troubleshooting
 

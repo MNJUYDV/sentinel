@@ -2,7 +2,7 @@
 Pydantic schemas for RAG API requests and responses.
 """
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -71,6 +71,22 @@ class ConflictResult(BaseModel):
     summary: str = Field(..., description="Human-readable summary of conflict detection")
 
 
+class RiskResult(BaseModel):
+    """Risk classification result."""
+    risk_level: str = Field(..., description="Risk level: high, medium, or low")
+    matched_keywords: List[str] = Field(default_factory=list, description="Keywords that matched for risk classification")
+
+
+class DecisionResult(BaseModel):
+    """Result of decision engine."""
+    decision: str = Field(..., description="Decision: ANSWER, ANSWER_WITH_CAVEATS, CLARIFY, ABSTAIN, or BLOCK")
+    reasons: List[str] = Field(default_factory=list, description="List of reasons for the decision")
+    user_message: Optional[str] = Field(None, description="Message to show user (if not ANSWER)")
+    thresholds: Dict[str, Any] = Field(default_factory=dict, description="Threshold values used for decision")
+    signals: Dict[str, Any] = Field(default_factory=dict, description="Signal values (confidence, freshness, etc.)")
+    risk: RiskResult = Field(..., description="Risk classification result")
+
+
 class AnswerRequest(BaseModel):
     """Request to answer a query using RAG."""
     query: str = Field(..., min_length=1, description="User query")
@@ -83,15 +99,17 @@ class AnswerRequest(BaseModel):
 
 
 class AnswerResponse(BaseModel):
-    """Response containing answer and retrieval results with citation validation and conflict detection."""
+    """Response containing answer and retrieval results with citation validation, conflict detection, and decision engine."""
     query: str = Field(..., description="Original query")
-    decision: str = Field(..., description="ANSWER, BLOCK, or ABSTAIN")
-    answer: str = Field(..., description="Generated answer, safe fallback if blocked, or conflict message if abstained")
+    decision: str = Field(..., description="ANSWER, ANSWER_WITH_CAVEATS, CLARIFY, ABSTAIN, or BLOCK")
+    answer: str = Field(..., description="Generated answer, safe fallback if blocked, clarification request, or abstention message")
     citations: List[str] = Field(..., description="List of citation IDs")
     retrieval: RetrievalResult = Field(..., description="Retrieval results")
     retrieval_quality: RetrievalQuality = Field(..., description="Retrieval quality signals")
     validation: ValidationResult = Field(..., description="Citation validation results")
     conflicts: ConflictResult = Field(..., description="Conflict detection results")
+    reasons: List[str] = Field(default_factory=list, description="Reasons for the decision")
+    signals: Dict[str, Any] = Field(default_factory=dict, description="Decision signals (confidence, freshness, etc.)")
 
 
 class DebugRetrievalResponse(BaseModel):
@@ -107,6 +125,16 @@ class DebugConflictsResponse(BaseModel):
     retrieval: RetrievalResult = Field(..., description="Retrieval results")
     retrieval_quality: RetrievalQuality = Field(..., description="Retrieval quality signals")
     conflicts: ConflictResult = Field(..., description="Conflict detection results")
+
+
+class DebugDecisionResponse(BaseModel):
+    """Response for debug decision endpoint (retrieval + conflict detection + decision engine, no LLM call)."""
+    query: str = Field(..., description="Original query")
+    risk: RiskResult = Field(..., description="Risk classification result")
+    retrieval_quality: RetrievalQuality = Field(..., description="Retrieval quality signals")
+    conflicts: ConflictResult = Field(..., description="Conflict detection results")
+    validation: Optional[ValidationResult] = Field(None, description="Citation validation results (if applicable)")
+    decision_result: DecisionResult = Field(..., description="Decision engine result")
 
 
 class ValidateRequest(BaseModel):
