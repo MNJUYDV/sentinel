@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 load_dotenv()
 
 from rag.config import DEFAULT_TOP_K, DEFAULT_FRESHNESS_DAYS
+from rag.conflicts import detect_conflicts
 from rag.ingest import initialize_rag_index
 from rag.llm import generate_answer
 from rag.retrieve import compute_retrieval_quality, retrieve
@@ -22,6 +23,9 @@ from rag.schemas import (
     AnswerRequest,
     AnswerResponse,
     ChunkInfo,
+    ConflictPair,
+    ConflictResult,
+    DebugConflictsResponse,
     DebugRetrievalResponse,
     DocsResponse,
     DocumentInfo,
@@ -40,9 +44,9 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="RAG MVP - Day 3",
-    description="A minimal RAG system with naive retrieval, LLM answering, retrieval quality signals, and citation enforcement",
-    version="0.3.0"
+    title="RAG MVP - Day 4",
+    description="A minimal RAG system with naive retrieval, LLM answering, retrieval quality signals, citation enforcement, and conflict detection",
+    version="0.4.0"
 )
 
 # Global state: initialized on startup
@@ -158,12 +162,13 @@ async def get_docs():
 @app.post("/answer", response_model=AnswerResponse)
 async def answer_query(request: AnswerRequest):
     """
-    Answer a query using RAG with citation enforcement:
+    Answer a query using RAG with citation enforcement and conflict detection:
     1. Retrieve top-k relevant chunks
-    2. Generate answer with citations using LLM
-    3. Validate citations against retrieved chunks
-    4. BLOCK response if citations are invalid
-    5. Compute and return retrieval quality signals
+    2. Detect conflicts in retrieved chunks
+    3. Generate answer with citations using LLM
+    4. Validate citations against retrieved chunks
+    5. Decision logic: BLOCK (invalid citations) > ABSTAIN (conflicts) > ANSWER
+    6. Compute and return retrieval quality signals
     """
     if vector_index is None:
         raise HTTPException(status_code=503, detail="RAG index not initialized")
@@ -187,7 +192,20 @@ async def answer_query(request: AnswerRequest):
         disable_freshness = (request.freshness_days == 0)
         retrieval_quality = compute_retrieval_quality(retrieved_chunks, freshness_days, disable_freshness=disable_freshness)
         
-        # Generate answer with citations
+        # Detect conflicts
+        conflict_result_dict = detect_conflicts(retrieved_chunks)
+        # Convert pairs to ConflictPair objects
+        conflict_pairs = [
+            ConflictPair(**pair) for pair in conflict_result_dict.get("pairs", [])
+        ]
+        conflict_result = ConflictResult(
+            conflict_detected=conflict_result_dict["conflict_detected"],
+            conflict_type=conflict_result_dict.get("conflict_type"),
+            pairs=conflict_pairs,
+            summary=conflict_result_dict["summary"]
+        )
+        
+        # Generate answer with citations (only if we might need it)
         llm_result = generate_answer(request.query, retrieved_chunks)
         answer = llm_result["answer"]
         citations = llm_result["citations"]
@@ -197,7 +215,7 @@ async def answer_query(request: AnswerRequest):
             citations, retrieved_chunks, answer
         )
         
-        # Log retrieval and validation signals
+        # Log retrieval, validation, and conflict signals
         top_doc_ids_str = ", ".join(retrieval_quality.top_doc_ids[:3])
         logger.info(
             f"Query: {request.query[:50]}, "
@@ -205,15 +223,58 @@ async def answer_query(request: AnswerRequest):
             f"retrieval_confidence_max: {retrieval_quality.confidence.max:.4f}, "
             f"freshness_violation: {retrieval_quality.freshness.freshness_violation}, "
             f"citation_valid: {citation_valid}, "
+            f"conflict_detected: {conflict_result.conflict_detected}, "
             f"top_doc_ids: [{top_doc_ids_str}]"
         )
         
-        # Determine decision: BLOCK if citations invalid
+        # Decision precedence: BLOCK (citation invalid) > ABSTAIN (conflict) > ANSWER
         if not citation_valid:
             decision = "BLOCK"
             answer = SAFE_FALLBACK_ANSWER
             citations = []  # Clear invalid citations
             logger.warning(f"BLOCKED answer due to invalid citations. Errors: {errors}")
+        elif conflict_result.conflict_detected and citation_valid:
+            decision = "ABSTAIN"
+            # Generate conflict-safe answer
+            if conflict_result.pairs:
+                first_pair = conflict_result.pairs[0]
+                chunk_a_id = first_pair.chunk_a["chunk_id"]
+                chunk_b_id = first_pair.chunk_b["chunk_id"]
+                
+                # Find the actual chunks for better context
+                chunk_a_text = next(
+                    (c["text"] for c in retrieved_chunks if c["chunk_id"] == chunk_a_id),
+                    "Source A"
+                )
+                chunk_b_text = next(
+                    (c["text"] for c in retrieved_chunks if c["chunk_id"] == chunk_b_id),
+                    "Source B"
+                )
+                
+                # Extract short snippets
+                snippet_a = chunk_a_text[:150] + "..." if len(chunk_a_text) > 150 else chunk_a_text
+                snippet_b = chunk_b_text[:150] + "..." if len(chunk_b_text) > 150 else chunk_b_text
+                
+                answer = (
+                    f"I can't answer definitively because the retrieved sources conflict. "
+                    f"Source A ({first_pair.chunk_a['doc_id']}) says: {snippet_a} "
+                    f"While Source B ({first_pair.chunk_b['doc_id']}) says: {snippet_b} "
+                    f"Please confirm the authoritative policy or escalate to an owner."
+                )
+                # Include both conflicting chunk IDs in citations
+                citations = [chunk_a_id, chunk_b_id]
+                # Ensure citations are valid (they should be since they're from retrieved chunks)
+                citations = [c for c in citations if c in [ch["chunk_id"] for ch in retrieved_chunks]]
+            else:
+                answer = (
+                    "I can't answer definitively because the retrieved sources contain conflicting information. "
+                    "Please confirm the authoritative policy or escalate to an owner."
+                )
+            
+            logger.warning(
+                f"ABSTAINED due to conflict: type={conflict_result.conflict_type}, "
+                f"doc_ids={[p.chunk_a['doc_id'] for p in conflict_result.pairs] + [p.chunk_b['doc_id'] for p in conflict_result.pairs]}"
+            )
         else:
             decision = "ANSWER"
             if warnings:
@@ -245,7 +306,8 @@ async def answer_query(request: AnswerRequest):
                 citation_valid=citation_valid,
                 errors=errors,
                 warnings=warnings
-            )
+            ),
+            conflicts=conflict_result
         )
         
         return response
@@ -348,6 +410,78 @@ async def debug_retrieval(
     except Exception as e:
         logger.error(f"Error in debug retrieval: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error in debug retrieval: {str(e)}")
+
+
+@app.get("/debug/conflicts", response_model=DebugConflictsResponse)
+async def debug_conflicts(
+    q: str = Query(..., description="Query string"),
+    top_k: int = Query(DEFAULT_TOP_K, ge=1, le=20, description="Number of chunks to retrieve"),
+    freshness_days: int = Query(None, ge=0, description="Freshness threshold in days (optional: >= 1 for threshold, 0 to disable, None for default)")
+):
+    """
+    Debug endpoint to inspect retrieval results, quality signals, and conflict detection without LLM call.
+    Useful for quickly inspecting conflict detection behavior.
+    """
+    if vector_index is None:
+        raise HTTPException(status_code=503, detail="RAG index not initialized")
+    
+    try:
+        # Use provided freshness_days or default
+        # If freshness_days is 0, disable freshness checking
+        disable_freshness = (freshness_days == 0)
+        if freshness_days == 0:
+            freshness_threshold = None
+        elif freshness_days is not None:
+            freshness_threshold = freshness_days
+        else:
+            freshness_threshold = DEFAULT_FRESHNESS_DAYS
+        
+        # Retrieve relevant chunks
+        retrieved_chunks = retrieve(vector_index, q, top_k)
+        
+        # Compute retrieval quality signals
+        retrieval_quality = compute_retrieval_quality(retrieved_chunks, freshness_threshold, disable_freshness=disable_freshness)
+        
+        # Detect conflicts
+        conflict_result_dict = detect_conflicts(retrieved_chunks)
+        # Convert pairs to ConflictPair objects
+        conflict_pairs = [
+            ConflictPair(**pair) for pair in conflict_result_dict.get("pairs", [])
+        ]
+        conflict_result = ConflictResult(
+            conflict_detected=conflict_result_dict["conflict_detected"],
+            conflict_type=conflict_result_dict.get("conflict_type"),
+            pairs=conflict_pairs,
+            summary=conflict_result_dict["summary"]
+        )
+        
+        # Format response
+        chunk_infos = [
+            ChunkInfo(
+                doc_id=chunk["doc_id"],
+                chunk_id=chunk["chunk_id"],
+                timestamp=chunk["timestamp"],
+                similarity=chunk["similarity"],
+                text=chunk["text"]
+            )
+            for chunk in retrieved_chunks
+        ]
+        
+        response = DebugConflictsResponse(
+            query=q,
+            retrieval=RetrievalResult(
+                top_k=top_k,
+                chunks=chunk_infos
+            ),
+            retrieval_quality=retrieval_quality,
+            conflicts=conflict_result
+        )
+        
+        return response
+    
+    except Exception as e:
+        logger.error(f"Error in debug conflicts: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error in debug conflicts: {str(e)}")
 
 
 if __name__ == "__main__":

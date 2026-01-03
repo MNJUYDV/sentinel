@@ -1,8 +1,8 @@
 # sentinel
 
-# RAG MVP - Day 3
+# RAG MVP - Day 4
 
-A minimal RAG (Retrieval-Augmented Generation) system that retrieves relevant document chunks and uses an LLM to generate answers. **Day 3 adds citation enforcement and validation to prevent hallucinated citations.**
+A minimal RAG (Retrieval-Augmented Generation) system that retrieves relevant document chunks and uses an LLM to generate answers. **Day 3 added citation enforcement and validation. Day 4 adds conflict detection to surface contradictory policy statements.**
 
 ## Features
 
@@ -12,8 +12,10 @@ A minimal RAG (Retrieval-Augmented Generation) system that retrieves relevant do
 - **Structured Citations**: LLM must return JSON with answer and citations
 - **Citation Validation**: Enforces citations reference actual retrieved chunks
 - **Hard Blocking**: Responses with invalid citations are BLOCKED with safe fallback
+- **Conflict Detection**: Detects contradictory policy statements in retrieved chunks
+- **Abstention on Conflicts**: System ABSTAINS when conflicts are detected (surfaces conflict, no silent arbitration)
 - **Retrieval Quality Signals**: Confidence metrics and freshness/staleness detection
-- **Debug Endpoints**: Inspect retrieval and validate citations independently
+- **Debug Endpoints**: Inspect retrieval, validate citations, and detect conflicts independently
 - **REST API**: FastAPI endpoints for querying and system info
 
 ## Project Structure
@@ -25,7 +27,8 @@ rag_mvp/
 ├── README.md             # This file
 ├── tests/                # Unit tests
 │   ├── test_retrieval_quality.py
-│   └── test_citation_validation.py
+│   ├── test_citation_validation.py
+│   └── test_conflict_detection.py
 ├── data/
 │   └── docs.json        # Seed documents
 └── rag/
@@ -35,7 +38,8 @@ rag_mvp/
     ├── ingest.py        # Document loading and indexing
     ├── retrieve.py      # Retrieval logic + quality signals
     ├── llm.py          # LLM integration (structured output)
-    └── validate.py     # Citation validation
+    ├── validate.py     # Citation validation
+    └── conflicts.py    # Conflict detection
 ```
 
 ## Installation
@@ -80,6 +84,7 @@ Or run specific test suites:
 ```bash
 pytest tests/test_retrieval_quality.py -v
 pytest tests/test_citation_validation.py -v
+pytest tests/test_conflict_detection.py -v
 ```
 
 ## API Endpoints
@@ -97,13 +102,13 @@ Answer a query using RAG retrieval and generation with citation enforcement.
 }
 ```
 
-**Response (Valid Citations):**
+**Response (Valid Citations, No Conflicts):**
 ```json
 {
   "query": "Can we store SSNs in plaintext?",
   "decision": "ANSWER",
   "answer": "No, SSNs must not be stored in plaintext...",
-  "citations": ["security-policy-v2.1#p1", "security-policy-legacy-v1.0#p1"],
+  "citations": ["security-policy-v2.1#p1"],
   "retrieval": {
     "top_k": 5,
     "chunks": [...]
@@ -118,6 +123,46 @@ Answer a query using RAG retrieval and generation with citation enforcement.
     "citation_valid": true,
     "errors": [],
     "warnings": []
+  },
+  "conflicts": {
+    "conflict_detected": false,
+    "conflict_type": null,
+    "pairs": [],
+    "summary": "No conflicts detected"
+  }
+}
+```
+
+**Response (Conflict Detected - ABSTAIN):**
+```json
+{
+  "query": "Can we store SSNs in plaintext?",
+  "decision": "ABSTAIN",
+  "answer": "I can't answer definitively because the retrieved sources conflict. Source A (security-policy-v2.1) says: SSNs must not be stored in plaintext... While Source B (security-policy-legacy-v1.0) says: SSNs may be stored in plaintext... Please confirm the authoritative policy or escalate to an owner.",
+  "citations": ["security-policy-v2.1#p0", "security-policy-legacy-v1.0#p0"],
+  "retrieval": {...},
+  "retrieval_quality": {...},
+  "validation": {
+    "citation_valid": true,
+    "errors": [],
+    "warnings": []
+  },
+  "conflicts": {
+    "conflict_detected": true,
+    "conflict_type": "policy",
+    "pairs": [
+      {
+        "chunk_a": {"doc_id": "security-policy-v2.1", "chunk_id": "security-policy-v2.1#p0"},
+        "chunk_b": {"doc_id": "security-policy-legacy-v1.0", "chunk_id": "security-policy-legacy-v1.0#p0"},
+        "reason": "store in plaintext vs must be encrypted / not plaintext",
+        "evidence_snippets": {
+          "a": "...SSNs must not be stored in plaintext...",
+          "b": "...SSNs may be stored in plaintext..."
+        },
+        "conflict_type": "policy"
+      }
+    ],
+    "summary": "Policy conflict detected: 1 conflicting pair(s) found"
   }
 }
 ```
@@ -214,6 +259,20 @@ Debug endpoint to inspect retrieval results and quality signals without LLM call
 curl "http://localhost:8000/debug/retrieval?q=Can%20we%20store%20SSNs%20in%20plaintext?&top_k=5"
 ```
 
+### GET /debug/conflicts
+
+Debug endpoint to inspect retrieval results, quality signals, and conflict detection without LLM call.
+
+**Query Parameters:**
+- `q` (required): Query string
+- `top_k` (optional, default=5): Number of chunks to retrieve
+- `freshness_days` (optional, default=90): Freshness threshold in days
+
+**Example:**
+```bash
+curl "http://localhost:8000/debug/conflicts?q=Can%20we%20store%20SSNs%20in%20plaintext?&top_k=5"
+```
+
 ### GET /health
 
 Health check endpoint.
@@ -258,9 +317,55 @@ The system enforces the following validation rules:
 - **freshness_violation**: Boolean indicating if any violations exist
 - **freshness_days**: The freshness threshold used (default: 90 days)
 
+## Decision Logic
+
+The system uses a precedence-based decision logic:
+
+1. **BLOCK** (highest priority): If citations are invalid → return safe fallback, clear citations
+2. **ABSTAIN**: If conflicts are detected AND citations are valid → surface conflict, no silent arbitration
+3. **ANSWER** (default): If no conflicts and citations are valid → return LLM-generated answer
+
+## Conflict Detection
+
+The system detects conflicts between retrieved chunks using heuristic-based pattern matching:
+
+### Conflict Types
+
+1. **Policy Conflicts**: Detects polarity mismatches (allowed vs prohibited)
+   - Keywords: `allowed/permitted/may/can` vs `prohibited/must not/may not/cannot/forbidden`
+   - Examples: "SSNs may be stored" vs "SSNs must not be stored"
+
+2. **Refund Conflicts**: Detects refund policy contradictions
+   - Keywords: `refundable/refunds allowed` vs `non-refundable/no refunds`
+
+3. **Encryption Conflicts**: Detects plaintext vs encryption requirements
+   - Keywords: `store in plaintext` vs `must be encrypted/not plaintext`
+
+4. **Numeric Conflicts**: Detects conflicting numeric values with same units
+   - Examples: "1000 requests per hour" vs "300 requests per hour"
+   - Only flags when both chunks discuss the same topic (e.g., "rate limit", "api rate")
+
+### Conflict Detection Rules
+
+- Only detects conflicts between chunks from **different documents** (same-document conflicts ignored)
+- Requires **topic overlap** to avoid false positives (both chunks must mention related keywords)
+- Returns conflict pairs with evidence snippets for transparency
+
 ## Example Queries
 
-### 1. Normal Answer with Valid Citations
+### 1. Normal Answer with Valid Citations (No Conflicts)
+```bash
+curl -X POST "http://localhost:8000/answer" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What is the data retention policy?",
+    "top_k": 5
+  }'
+```
+
+This should return `decision: "ANSWER"` with valid citations and `conflicts.conflict_detected: false`.
+
+### 2. Conflict Detection - SSN Plaintext Query
 ```bash
 curl -X POST "http://localhost:8000/answer" \
   -H "Content-Type: application/json" \
@@ -270,11 +375,10 @@ curl -X POST "http://localhost:8000/answer" \
   }'
 ```
 
-This should return `decision: "ANSWER"` with valid citations.
+This should return `decision: "ABSTAIN"` with `conflicts.conflict_detected: true` and a conflict message that surfaces both conflicting sources.
 
-### 2. Stub Mode (No OpenAI Key)
+### 3. Conflict Detection - API Rate Limit Query
 ```bash
-# Without OPENAI_API_KEY set
 curl -X POST "http://localhost:8000/answer" \
   -H "Content-Type: application/json" \
   -d '{
@@ -283,9 +387,22 @@ curl -X POST "http://localhost:8000/answer" \
   }'
 ```
 
+This should detect a numeric conflict between the 2021 policy (1000 req/hr) and 2024 policy (300 req/hr), returning `decision: "ABSTAIN"` with `conflict_type: "numeric"`.
+
+### 4. Stub Mode (No OpenAI Key)
+```bash
+# Without OPENAI_API_KEY set
+curl -X POST "http://localhost:8000/answer" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What is the data retention policy?",
+    "top_k": 5
+  }'
+```
+
 Stub mode will generate answers with valid citations that reference retrieved chunks.
 
-### 3. Test Invalid Citation (using /validate endpoint)
+### 5. Test Invalid Citation (using /validate endpoint)
 ```bash
 curl -X POST "http://localhost:8000/validate" \
   -H "Content-Type: application/json" \
@@ -306,10 +423,17 @@ curl -X POST "http://localhost:8000/validate" \
 
 This demonstrates how invalid citations are detected.
 
-### 4. Debug Retrieval
+### 6. Debug Retrieval
 ```bash
 curl "http://localhost:8000/debug/retrieval?q=Are%20refunds%20allowed?&top_k=5"
 ```
+
+### 7. Debug Conflicts
+```bash
+curl "http://localhost:8000/debug/conflicts?q=Can%20we%20store%20SSNs%20in%20plaintext?&top_k=5"
+```
+
+This returns retrieval results, quality signals, and conflict detection without generating an answer.
 
 ## Seed Documents
 
@@ -350,15 +474,27 @@ These can be overridden per request via API parameters.
 - ✅ Added keyword overlap heuristic (warning only, non-blocking)
 - ✅ Extended `/answer` response with validation signals
 
+## Day 4 Changes
+
+- ✅ Added conflict detection module (`rag/conflicts.py`)
+- ✅ Implemented heuristic-based conflict detection (policy, numeric, refund, encryption conflicts)
+- ✅ Added decision logic: BLOCK (invalid citations) > ABSTAIN (conflicts) > ANSWER
+- ✅ Added conflict surfacing: system explicitly states conflicts, no silent arbitration
+- ✅ Added `/debug/conflicts` endpoint for conflict detection testing
+- ✅ Extended `/answer` response with conflict detection results
+- ✅ Added comprehensive unit tests for conflict detection
+- ✅ Updated schemas to include `ConflictResult` and `ConflictPair` types
+
 ## Next Steps (Future Days)
 
-- Add abstention logic based on retrieval quality (Day 5)
-- Implement conflict detection and resolution
+- Add abstention logic based on retrieval quality thresholds (Day 5)
+- Implement staleness-based abstention (Day 5+)
 - Add source citation formatting in answer text
 - Implement reranking based on freshness and confidence
 - Add query expansion and refinement
 - Implement conversation history
 - Add evaluation metrics
+- Human routing workflow for conflicts
 
 ## Troubleshooting
 

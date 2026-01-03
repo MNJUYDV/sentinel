@@ -2,7 +2,7 @@
 Pydantic schemas for RAG API requests and responses.
 """
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -54,6 +54,23 @@ class ValidationResult(BaseModel):
     warnings: List[str] = Field(default_factory=list, description="Validation warnings (non-blocking)")
 
 
+class ConflictPair(BaseModel):
+    """A pair of conflicting chunks."""
+    chunk_a: Dict[str, str] = Field(..., description="First conflicting chunk (doc_id, chunk_id)")
+    chunk_b: Dict[str, str] = Field(..., description="Second conflicting chunk (doc_id, chunk_id)")
+    reason: str = Field(..., description="Reason for conflict")
+    evidence_snippets: Dict[str, str] = Field(..., description="Evidence snippets from both chunks")
+    conflict_type: str = Field(..., description="Type of conflict: policy, numeric, temporal, other")
+
+
+class ConflictResult(BaseModel):
+    """Result of conflict detection."""
+    conflict_detected: bool = Field(..., description="True if conflicts were detected")
+    conflict_type: Optional[str] = Field(None, description="Type of conflict: policy, numeric, temporal, other")
+    pairs: List[ConflictPair] = Field(default_factory=list, description="List of conflicting chunk pairs")
+    summary: str = Field(..., description="Human-readable summary of conflict detection")
+
+
 class AnswerRequest(BaseModel):
     """Request to answer a query using RAG."""
     query: str = Field(..., min_length=1, description="User query")
@@ -66,14 +83,15 @@ class AnswerRequest(BaseModel):
 
 
 class AnswerResponse(BaseModel):
-    """Response containing answer and retrieval results with citation validation."""
+    """Response containing answer and retrieval results with citation validation and conflict detection."""
     query: str = Field(..., description="Original query")
-    decision: str = Field(..., description="ANSWER or BLOCK")
-    answer: str = Field(..., description="Generated answer or safe fallback if blocked")
+    decision: str = Field(..., description="ANSWER, BLOCK, or ABSTAIN")
+    answer: str = Field(..., description="Generated answer, safe fallback if blocked, or conflict message if abstained")
     citations: List[str] = Field(..., description="List of citation IDs")
     retrieval: RetrievalResult = Field(..., description="Retrieval results")
     retrieval_quality: RetrievalQuality = Field(..., description="Retrieval quality signals")
     validation: ValidationResult = Field(..., description="Citation validation results")
+    conflicts: ConflictResult = Field(..., description="Conflict detection results")
 
 
 class DebugRetrievalResponse(BaseModel):
@@ -81,6 +99,14 @@ class DebugRetrievalResponse(BaseModel):
     query: str = Field(..., description="Original query")
     retrieval: RetrievalResult = Field(..., description="Retrieval results")
     retrieval_quality: RetrievalQuality = Field(..., description="Retrieval quality signals")
+
+
+class DebugConflictsResponse(BaseModel):
+    """Response for debug conflicts endpoint (retrieval + conflict detection only)."""
+    query: str = Field(..., description="Original query")
+    retrieval: RetrievalResult = Field(..., description="Retrieval results")
+    retrieval_quality: RetrievalQuality = Field(..., description="Retrieval quality signals")
+    conflicts: ConflictResult = Field(..., description="Conflict detection results")
 
 
 class ValidateRequest(BaseModel):
