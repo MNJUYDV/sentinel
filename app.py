@@ -1,5 +1,5 @@
 """
-FastAPI application for RAG MVP Day 7.
+FastAPI application for RAG MVP.
 """
 import logging
 import os
@@ -60,9 +60,9 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="RAG MVP - Day 7",
+    title="RAG MVP",
     description="A minimal RAG system with naive retrieval, LLM answering, retrieval quality signals, citation enforcement, conflict detection, decision engine, and config versioning",
-    version="0.7.0"
+    version="1.0.0"
 )
 
 # Global state: initialized on startup

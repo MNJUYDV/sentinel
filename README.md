@@ -1,8 +1,8 @@
 # sentinel
 
-# RAG MVP - Day 7
+# RAG MVP
 
-A minimal RAG (Retrieval-Augmented Generation) system that retrieves relevant document chunks and uses an LLM to generate answers. **Day 3 added citation enforcement and validation. Day 4 adds conflict detection. Day 5 adds a decision engine with abstention logic, risk classification, and clarification requests. Day 6 adds an offline evaluation suite with attribute-based scoring and regression comparison. Day 7 adds config versioning, promotion workflows, and rollback support.**
+A minimal RAG (Retrieval-Augmented Generation) system that retrieves relevant document chunks and uses an LLM to generate answers. **Includes citation enforcement and validation, conflict detection, decision engine with abstention logic, risk classification, clarification requests, offline evaluation suite with attribute-based scoring, regression comparison, config versioning, promotion workflows, and rollback support.**
 
 ## Features
 
@@ -752,19 +752,7 @@ These can be overridden per request via API parameters (where applicable).
 - ✅ Added comprehensive unit tests for eval components
 - ✅ Evaluation runs in stub mode by default for determinism
 
-## Day 7 Changes
-
-- ✅ Added config registry system (`registry/`) with versioned config management
-- ✅ Implemented promotion workflow with eval-gated promotion to prod
-- ✅ Added rollback support (one-level rollback to previous prod config)
-- ✅ Created FastAPI endpoints for config management (`/configs`, `/promote`, `/rollback`, `/pointers`)
-- ✅ Wired prod pointer into `/answer` endpoint with environment override (`?env=dev|staging|prod`)
-- ✅ Added promotion history logging (JSONL format)
-- ✅ Created bootstrap script for initial config setup
-- ✅ Added comprehensive tests for registry and promotion workflows
-- ✅ File-based storage (no database required for MVP)
-
-## Config Versioning and Promotion (Day 7)
+## Config Versioning and Promotion
 
 The system includes a config registry that manages versioned configurations with promotion workflows and rollback support. All config changes (including prompts) are versioned and must pass evaluation gates before promotion to production.
 
